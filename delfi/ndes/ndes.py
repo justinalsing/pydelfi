@@ -1,7 +1,7 @@
 import numpy as np
 import numpy.random as rng
 import tensorflow as tf
-import ndes.mades
+import delfi.ndes.mades
 
 dtype = tf.float32
 

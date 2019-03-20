@@ -20,7 +20,7 @@ from numpy import *
 from scipy.integrate import romberg, odeint, romb, quad
 from scipy.optimize import brentq
 from scipy.interpolate import interp1d
-import simulators.cosmic_shear.constants as const
+import delfi.simulators.cosmic_shear.constants as const
 from .utils import *
 
 
