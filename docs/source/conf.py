@@ -163,3 +163,23 @@ texinfo_documents = [
 
 breathe_projects = {"pydelfi": "../doxygen/xml"}
 breathe_default_project = "pydelfi"
+
+# APIDOC: ref: https://github.com/jakirkham/pysharedmem/blob/master/docs/conf.py
+argv = [
+    "-f",
+    "-T",
+    "-e",
+    "-M",
+    "-o", ".",
+    ".."
+]
+
+try:
+    # Sphinx 1.7+
+    from sphinx.ext import apidoc
+except ImportError:
+    # Sphinx 1.6 (and earlier)
+    from sphinx import apidoc
+    argv.insert(0, apidoc.__file__)
+
+apidoc.main(argv)
