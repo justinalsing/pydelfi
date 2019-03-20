@@ -9,7 +9,7 @@ Welcome to pydelfi's documentation!
    :caption: Table of Contents
 
    intro
-   pydelfi
+   reference/pydelfi
 
 
 
