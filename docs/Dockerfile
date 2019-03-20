@@ -29,7 +29,9 @@ RUN git clone https://github.com/milescranmer/pydelfi /pydelfi && \
     python setup.py install
 
 # Build the docs
-RUN make doc && \
+RUN cd /pydelfi &&\
+    cat Makefile &&\ 
+    make doc && \
     cd docs && \
     make html
 
