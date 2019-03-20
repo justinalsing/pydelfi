@@ -37,7 +37,11 @@ Now, let's load up the pydelfi library.
     import pydelfi.compression.score.score as score
     tf.logging.set_verbosity(tf.logging.ERROR)
 
-Here, we will focus on the simulator for cosmic shear.
+Here, we will focus on the simulator for cosmic shear. First,
+let's generate some power spectrum between l=10 and 1000. Here,
+pz is the photo-z distribution. Here, we'll set up
+:python:`simulator` as a function that calls
+the power spectrum simulator.
 
 .. code:: python
 
@@ -54,7 +58,7 @@ Here, we will focus on the simulator for cosmic shear.
    # Simulator arguments
    simulator_args = None
 
-Next
+Now, let's define...
 
 .. code:: python
 
