@@ -10,8 +10,11 @@ Welcome to pydelfi's documentation!
 
    intro
 
-.. include:: reference/pydelfi.rst
 
+.. automodule:: pydelfi.compression
+    :members:
+    :undoc-members:
+    :show-inheritance:
 
 
 Indices and tables
