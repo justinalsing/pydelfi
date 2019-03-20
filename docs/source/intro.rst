@@ -1,4 +1,4 @@
-Introduction to Bifrost
+Introduction to PyDelfi
 =======================
 
 pydelfi is ...
