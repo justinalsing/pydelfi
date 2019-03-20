@@ -47,7 +47,7 @@ class ConditionalMaskedAutoregressiveFlow:
             
             # create a new made
             with tf.variable_scope('nde_' + str(index) + '_made_' + str(i + 1)):
-                made = ndes.mades.ConditionalGaussianMade(n_parameters, n_data, n_hiddens, act_fun,
+                made = pydelfi.ndes.mades.ConditionalGaussianMade(n_parameters, n_data, n_hiddens, act_fun,
                                                  output_order, mode, self.parameters, self.u)
             self.mades.append(made)
             self.parms += made.parms
