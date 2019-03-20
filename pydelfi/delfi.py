@@ -1,11 +1,11 @@
 import tensorflow as tf
 import getdist
 from getdist import plots, MCSamples
-import delfi.ndes.ndes
-import delfi.ndes.train
+import pydelfi.ndes.ndes
+import pydelfi.ndes.train
 import emcee
 import matplotlib.pyplot as plt
-import delfi.distributions.priors as priors
+import pydelfi.distributions.priors as priors
 import numpy as np
 import tqdm
 import scipy.optimize as optimization
