@@ -314,8 +314,16 @@ class Delfi():
         return data_samples, parameter_samples
 
     # EMCEE sampler
-    def emcee_sample(self, log_likelihood, x0, burn_in_chain=100, main_chain=100):
+    def emcee_sample(self, log_likelihood=None, x0=None, burn_in_chain=100, main_chain=1000):
     
+        # Set the log likelihood (default to the posterior if none given)
+        if log_likelihood is None:
+            log_likelihood = self.log_posterior_stacked
+        
+        # Set up default x0
+        if x0 is None:
+            x0 = [self.posterior_samples[-i,:] for i in range(self.nwalkers)]
+        
         # Set up the sampler
         sampler = emcee.EnsembleSampler(self.nwalkers, self.npar, log_likelihood)
     
@@ -375,8 +383,8 @@ class Delfi():
             # Generate posterior samples
             if save_intermediate_posteriors:
                 print('Sampling approximate posterior...')
-                self.posterior_samples = self.emcee_sample(self.log_posterior_stacked, \
-                                  [self.posterior_samples[-i,:] for i in range(self.nwalkers)], \
+                self.posterior_samples = self.emcee_sample(log_likelihood=self.log_posterior_stacked, \
+                                  x0=[self.posterior_samples[-i,:] for i in range(self.nwalkers)], \
                                   main_chain=self.posterior_chain_length)
             
                 # Save posterior samples to file
@@ -406,8 +414,8 @@ class Delfi():
                 # Sample the current posterior approximation
                 print('Sampling proposal density...')
                 self.proposal_samples = \
-                    self.emcee_sample(self.log_geometric_mean_proposal_stacked, \
-                                      [self.proposal_samples[-j,:] for j in range(self.nwalkers)], \
+                    self.emcee_sample(log_likelihood=self.log_geometric_mean_proposal_stacked, \
+                                      x0=[self.proposal_samples[-j,:] for j in range(self.nwalkers)], \
                                       main_chain=self.proposal_chain_length)
                 ps_batch = self.proposal_samples[-safety * n_batch:,:]
                 print('Done.')
@@ -437,8 +445,8 @@ class Delfi():
                 # Generate posterior samples
                 if save_intermediate_posteriors:
                     print('Sampling approximate posterior...')
-                    self.posterior_samples = self.emcee_sample(self.log_posterior_stacked, \
-                                      [self.posterior_samples[j] for j in range(self.nwalkers)], \
+                    self.posterior_samples = self.emcee_sample(log_likelihood=self.log_posterior_stacked, \
+                                      x0=[self.posterior_samples[j] for j in range(self.nwalkers)], \
                                       main_chain=self.posterior_chain_length)
                 
                     # Save posterior samples to file
@@ -460,8 +468,12 @@ class Delfi():
                     # Plot the training loss convergence
                     self.sequential_training_plot(savefig=True, filename='{}seq_train_loss.pdf'.format(self.results_dir))
 
-    def train_ndes(self, training_data, batch_size=100, validation_split=0.1, epochs=500, patience=20, saver_name=None):
+    def train_ndes(self, training_data=None, batch_size=100, validation_split=0.1, epochs=500, patience=20, saver_name=None):
     
+        # Set the default training data if none
+        if training_data is None:
+            training_data = [self.x_train, self.y_train]
+        
         # Train the networks
         for n in range(self.n_ndes):
             # Train the NDE
@@ -543,8 +555,11 @@ class Delfi():
             # Train the networks on these initial simulations
             self.train_ndes(training_data=[fisher_x_train, fisher_y_train], validation_split = validation_split, epochs=epochs, batch_size=batch_size, patience=patience, saver_name=None)
 
-    def triangle_plot(self, samples, savefig = False, filename = None):
+    def triangle_plot(self, samples = None, savefig = False, filename = None):
 
+        # Set samples to the posterior samples by default
+        if samples is None:
+            samples = [self.posterior_samples]
         mc_samples = [MCSamples(samples=s, names = self.names, labels = self.labels, ranges = self.ranges) for s in samples]
 
         # Triangle plot
