@@ -10,7 +10,7 @@ Welcome to pydelfi's documentation!
 
    intro
 
-.. include:: py-modindex.rst
+.. include:: reference/pydelfi.rst
 
 
 
