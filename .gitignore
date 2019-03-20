@@ -53,3 +53,4 @@ simulators/cosmic_shear/results_nuisances
 simulators/cosmic_shear/results_marginal
 simulators/cosmic_shear/mcmc
 simulators/jla_supernovae/results_nofisher/*
+__pycache__
