@@ -58,7 +58,12 @@ the power spectrum simulator.
    # Simulator arguments
    simulator_args = None
 
-Now, let's define...
+Generally you would like a weakly informated prior.
+For our NDE, we define truncated Gaussian priors. 
+The following variables declare our truncation bounds
+as well as the prior mean and convariance, over the following
+Cosmological parameters: Omega_M, S_8, Omega_b, h, and n_S.
+
 
 .. code:: python
 
@@ -71,7 +76,11 @@ Now, let's define...
    # Prior
    prior = priors.TruncatedGaussian(prior_mean, prior_covariance, lower, upper)
 
-Next
+
+We work in the idealized case where sampling distribution for
+each l bin in our power spectra is Wishart. In other words,
+we compress our data
+as if it were a Wishart distributed. (Each l-bin is a Wishart distributed.)
 
 .. code:: python
 
@@ -146,3 +155,5 @@ Next
 
    # Do the SNL training
    DelfiEnsemble.sequential_training(simulator, compressor, n_initial, n_batch, n_populations, patience=10, save_intermediate_posteriors=True)
+
+
