@@ -12,5 +12,9 @@ setup(name='pydelfi',
       packages=find_packages(),
       install_requires=[
           "tensorflow>=v1.1.0",
+          "getdist",
+          "emcee",
+          "mpi4py",
+          "scipy"
       ])
 
