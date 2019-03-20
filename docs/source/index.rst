@@ -9,8 +9,11 @@ Welcome to pydelfi's documentation!
    :caption: Table of Contents
 
    intro
-   modindex
 
+.. automodule:: pydelfi
+    :members:
+    :undoc-members:
+    :show-inheritance:
 
 
 Indices and tables
