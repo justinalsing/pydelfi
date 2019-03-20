@@ -7,7 +7,6 @@ setup(name='pydelfi',
       version='v0.1',
       description='LFI in TensorFlow',
       author='Justin Alsing',
-      author_email='benbarsdell@gmail.com',
       url='https://github.com/justinalsing/pydelfi',
       packages=find_packages(),
       install_requires=[
