@@ -1,6 +1,6 @@
 import numpy as np
 import scipy.integrate as integrate
-import simulators.jla_supernovae.jla_parser as jla_parser
+import pydelfi.simulators.jla_supernovae.jla_parser as jla_parser
 
 class JLA_Model():
 
