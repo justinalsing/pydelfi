@@ -54,7 +54,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'pydelfi'
-copyright = u'2017, justinalsing'
+copyright = u'2019, justinalsing'
 author = u'justinalsing'
 
 # The version info for the project you're documenting, acts as replacement for
