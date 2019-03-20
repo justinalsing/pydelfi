@@ -20,6 +20,6 @@ help:
 	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
 
 generate_reference:
-	sphinx-apidoc -o source -d 5 --force ../pydelfi/
+	sphinx-apidoc -o source -d 5 --force ../
 .PHONY: generate_reference
 
