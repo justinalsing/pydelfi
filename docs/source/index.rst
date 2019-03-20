@@ -9,7 +9,8 @@ Welcome to pydelfi's documentation!
    :caption: Table of Contents
 
    intro
-   :ref:`genindex`
-   :ref:`modindex`
-   :ref:`search`
 
+
+* :ref:`genindex`
+* :ref:`modindex`
+* :ref:`search`
