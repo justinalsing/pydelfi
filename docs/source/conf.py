@@ -164,7 +164,7 @@ texinfo_documents = [
 apidoc_module_dir = '../..'
 apidoc_output_dir = 'reference'
 apidoc_excluded_paths = ['setup.py', 'docs']
-apidoc_separate_modules = True
+apidoc_separate_modules = False
 
 autodoc_mock_imports = [
     "numpy",
