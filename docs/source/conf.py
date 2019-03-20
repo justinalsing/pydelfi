@@ -173,4 +173,5 @@ autodoc_mock_imports = [
     "matplotlib",
     "getdist",
     "tensorflow",
+    "mpi4py",
 ]
