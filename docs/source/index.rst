@@ -9,17 +9,7 @@ Welcome to pydelfi's documentation!
    :caption: Table of Contents
 
    intro
+   :ref:`genindex`
+   :ref:`modindex`
+   :ref:`search`
 
-
-.. automodule:: pydelfi.compression
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
