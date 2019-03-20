@@ -174,4 +174,5 @@ autodoc_mock_imports = [
     "getdist",
     "tensorflow",
     "mpi4py",
+    "tqdm"
 ]
