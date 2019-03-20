@@ -2,15 +2,31 @@
 # using the ledatelescope/bifrost container, and
 # puts it into the folder /bifrost/docs/build/html
 # inside a new container.
-FROM tensorflow/tensorflow
+FROM tensorflow/tensorflow:latest-py3
 
 # Install pre-requisite documentation libraries at
 # a specific commit that is known to work
-RUN pip install --no-cache-dir \
-    git+https://github.com/sphinx-doc/sphinx.git@8aafa50af47f7536979a8c321461ec837c91c8e6 \
-    git+https://github.com/michaeljones/breathe.git@d3eae7fac4d2ead062070fd149ec8bf839f74ed5
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends build-essential \
+        curl \
+        git \
+        pkg-config \
+        software-properties-common \
+        doxygen \
+        exuberant-ctags \
+        nano \
+        vim \
+        && \
+    pip3 install --no-cache-dir \
+    git+https://github.com/sphinx-doc/sphinx.git \
+    git+https://github.com/michaeljones/breathe.git
 
 WORKDIR "/pydelfi"
+
+# pydelfi install
+RUN git clone https://github.com/milescranmer/pydelfi /pydelfi && \
+    cd /pydelfi && \
+    python setup.py install
 
 # Build the docs
 RUN make doc && \
