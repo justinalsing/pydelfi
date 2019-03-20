@@ -31,10 +31,10 @@ RUN git clone https://github.com/milescranmer/pydelfi /pydelfi && \
 
 # Build the docs
 RUN cd /pydelfi && \
-    ls && \
     cat Makefile && \ 
     make doc && \
     cd docs && \
+    cat Makefile && \
     make html
 
 WORKDIR "/pydelfi/docs/build/html"
