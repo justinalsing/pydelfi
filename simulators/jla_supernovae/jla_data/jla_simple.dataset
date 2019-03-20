@@ -1,0 +1,5 @@
+#Settings for the joint SNLS/SDSS data analysis
+#Simplified version of the Likelihood
+name = JLA_simple
+data_file = data/jla_mub.txt
+mu_covmat_file = data/jla_mub_covmatrix.dat

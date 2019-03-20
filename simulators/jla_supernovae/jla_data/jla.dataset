@@ -1,0 +1,23 @@
+#Settings for the joint SNLS/SDSS data analysis
+name = JLA
+data_file = data/jla_lcparams.txt
+pecz = 0
+intrinsicdisp = 0
+intrinsicdisp0 = 0
+intrinsicdisp1 = 0
+intrinsicdisp2 = 0
+intrinsicdisp3 = 0
+twoscriptmfit = T
+scriptmcut = 10.0
+has_mag_covmat = T
+mag_covmat_file = data/jla_v0_covmatrix.dat
+has_stretch_covmat = T
+stretch_covmat_file = data/jla_va_covmatrix.dat
+has_colour_covmat = T
+colour_covmat_file = data/jla_vb_covmatrix.dat
+has_mag_stretch_covmat = T
+mag_stretch_covmat_file = data/jla_v0a_covmatrix.dat
+has_mag_colour_covmat = T
+mag_colour_covmat_file = data/jla_v0b_covmatrix.dat
+has_stretch_colour_covmat = T
+stretch_colour_covmat_file = data/jla_vab_covmatrix.dat
