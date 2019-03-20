@@ -10,10 +10,8 @@ Welcome to pydelfi's documentation!
 
    intro
 
-.. automodule:: pydelfi
-    :members:
-    :undoc-members:
-    :show-inheritance:
+.. include:: py-modindex.rst
+
 
 
 Indices and tables
