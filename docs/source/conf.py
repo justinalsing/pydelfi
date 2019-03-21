@@ -163,7 +163,7 @@ texinfo_documents = [
 # APIDOC info:
 apidoc_module_dir = '../..'
 apidoc_output_dir = 'reference'
-apidoc_excluded_paths = ['setup.py', 'docs']
+apidoc_excluded_paths = ['setup.py', 'docs', 'pydelfi/simulators']
 apidoc_separate_modules = False
 
 autodoc_mock_imports = [
