@@ -1,13 +1,15 @@
 import tensorflow as tf
 import getdist
 from getdist import plots, MCSamples
-import pydelfi.ndes.ndes
-import pydelfi.ndes.train
+import pydelfi.ndes
+import pydelfi.train
 import emcee
 import matplotlib.pyplot as plt
-import pydelfi.distributions.priors as priors
+import matplotlib as mpl
+import pydelfi.priors as priors
 import numpy as np
-import tqdm
+#import tqdm
+from tqdm.auto import tqdm
 import scipy.optimize as optimization
 
 def isnotebook():
@@ -28,7 +30,7 @@ class Delfi():
                  Finv= None, theta_fiducial = None, param_limits = None, param_names=None, nwalkers=100, \
                  posterior_chain_length=1000, proposal_chain_length=100, \
                  rank=0, n_procs=1, comm=None, red_op=None, \
-                 show_plot=True, results_dir = "", progress_bar=True, input_normalization = None):
+                 show_plot=True, results_dir = "", progress_bar=True, input_normalization = None, restore_file = None):
         
         # Data
         self.data = data
@@ -43,12 +45,17 @@ class Delfi():
         # Initialize the NDEs, trainers, and stacking weights (for stacked density estimators)
         self.n_ndes = len(nde)
         self.nde = nde
-        self.trainer = [pydelfi.ndes.train.ConditionalTrainer(nde[i]) for i in range(self.n_ndes)]
+        self.trainer = [pydelfi.train.ConditionalTrainer(nde[i]) for i in range(self.n_ndes)]
         self.stacking_weights = np.zeros(self.n_ndes)
 
         # Tensorflow session for the NDE training
         self.sess = tf.Session(config = tf.ConfigProto())
         self.sess.run(tf.global_variables_initializer())
+        
+        # Restore the graph if a file is passed
+        if restore_file is not None:
+            saver = tf.train.Saver()
+            saver.restore(self.sess, restore_file)
         
         # Parameter limits
         if param_limits is not None:
@@ -284,10 +291,10 @@ class Delfi():
         i_acpt = self.inds_acpt[0]
         err_msg = 'Simulator returns {:s} for parameter values: {} (rank {:d})'
         if self.progress_bar:
-            if self.nb:
-                pbar = tqdm.tqdm_notebook(total = self.inds_acpt[-1], desc = "Simulations")
-            else:
-                pbar = tqdm.tqdm(total = self.inds_acpt[-1], desc = "Simulations")
+            #if self.nb:
+            #    pbar = tqdm.tqdm_notebook(total = self.inds_acpt[-1], desc = "Simulations")
+            #else:
+            pbar = tqdm(total = self.inds_acpt[-1], desc = "Simulations")
         while i_acpt <= self.inds_acpt[-1]:
             try:
                 sims = simulator(ps[i_prop,:], seed_generator(), simulator_args, sub_batch)
@@ -468,7 +475,7 @@ class Delfi():
                     # Plot the training loss convergence
                     self.sequential_training_plot(savefig=True, filename='{}seq_train_loss.pdf'.format(self.results_dir))
 
-    def train_ndes(self, training_data=None, batch_size=100, validation_split=0.1, epochs=500, patience=20, saver_name=None):
+    def train_ndes(self, training_data=None, batch_size=100, validation_split=0.1, epochs=500, patience=20, saver_name=None, mode='samples'):
     
         # Set the default training data if none
         if training_data is None:
@@ -477,7 +484,7 @@ class Delfi():
         # Train the networks
         for n in range(self.n_ndes):
             # Train the NDE
-            val_loss, train_loss = self.trainer[n].train(self.sess, training_data, validation_split = validation_split, epochs=epochs, batch_size=batch_size, progress_bar=self.progress_bar, patience=patience, saver_name='{}tmp_model'.format(self.results_dir))
+            val_loss, train_loss = self.trainer[n].train(self.sess, training_data, validation_split = validation_split, epochs=epochs, batch_size=batch_size, progress_bar=self.progress_bar, patience=patience, saver_name='{}tmp_model'.format(self.results_dir), mode=mode)
         
             # Save the training and validation losses
             self.training_loss[n] = np.concatenate([self.training_loss[n], train_loss])
@@ -514,7 +521,7 @@ class Delfi():
         self.y_train = self.xs.astype(np.float32)
         self.n_sims += len(ps_batch)
     
-    def fisher_pretraining(self, n_batch=50000, plot=True, batch_size=100, validation_split=0.1, epochs=300, patience=10):
+    def fisher_pretraining(self, n_batch=5000, plot=True, batch_size=100, validation_split=0.1, epochs=300, patience=20):
 
         # Train on master only
         if self.rank == 0:
@@ -548,12 +555,28 @@ class Delfi():
             # Sample data assuming a Gaussian likelihood
             xs = np.array([pss + np.dot(Ldd, np.random.normal(0, 1, self.npar)) for pss in ps])
             
+            # Evaluate the logpdf at those values
+            fisher_logpdf_train = np.array([-0.5*np.dot(xs[i,:]-ps[i,:], np.dot(Cddinv, xs[i,:]-ps[i,:])) - 0.5*ln2pidetCdd for i in range(len(xs))])
+            
             # Construct the initial training-set
             fisher_x_train = ps.astype(np.float32).reshape((3*n_batch, self.npar))
             fisher_y_train = xs.astype(np.float32).reshape((3*n_batch, self.npar))
             
             # Train the networks on these initial simulations
-            self.train_ndes(training_data=[fisher_x_train, fisher_y_train], validation_split = validation_split, epochs=epochs, batch_size=batch_size, patience=patience, saver_name=None)
+            self.train_ndes(training_data=[fisher_x_train, fisher_y_train, np.atleast_2d(fisher_logpdf_train).reshape(-1,1)], validation_split = validation_split, epochs=epochs, batch_size=batch_size, patience=patience, saver_name=None, mode='regression')
+
+            # Generate posterior samples
+            if plot==True:
+                print('Sampling approximate posterior...')
+                self.posterior_samples = self.emcee_sample(log_likelihood=self.log_posterior_stacked, \
+                                      x0=[self.posterior_samples[j] for j in range(self.nwalkers)], \
+                                      main_chain=self.posterior_chain_length)
+                print('Done.')
+
+                # Plot the posterior
+                self.triangle_plot([self.posterior_samples], \
+                                    savefig=True, \
+                                    filename='{}fisher_train_post.pdf'.format(self.results_dir))
 
     def triangle_plot(self, samples = None, savefig = False, filename = None):
 
@@ -563,27 +586,28 @@ class Delfi():
         mc_samples = [MCSamples(samples=s, names = self.names, labels = self.labels, ranges = self.ranges) for s in samples]
 
         # Triangle plot
-        g = plots.getSubplotPlotter(width_inch = 12)
-        g.settings.figure_legend_frame = False
-        g.settings.alpha_filled_add=0.6
-        g.settings.axes_fontsize=14
-        g.settings.legend_fontsize=16
-        g.settings.lab_fontsize=20
-        g.triangle_plot(mc_samples, filled_compare=True, normalized=True)
-        for i in range(0, len(samples[0][0,:])):
-            for j in range(0, i+1):
-                ax = g.subplots[i,j]
-                xtl = ax.get_xticklabels()
-                ax.set_xticklabels(xtl, rotation=45)
-        plt.tight_layout()
-        plt.subplots_adjust(hspace=0, wspace=0)
-        
-        if savefig:
-            plt.savefig(filename)
-        if self.show_plot:
-            plt.show()
-        else:
-            plt.close()
+        with mpl.rc_context():
+            g = plots.getSubplotPlotter(width_inch = 12)
+            g.settings.figure_legend_frame = False
+            g.settings.alpha_filled_add=0.6
+            g.settings.axes_fontsize=14
+            g.settings.legend_fontsize=16
+            g.settings.lab_fontsize=20
+            g.triangle_plot(mc_samples, filled_compare=True, normalized=True)
+            for i in range(0, len(samples[0][0,:])):
+                for j in range(0, i+1):
+                    ax = g.subplots[i,j]
+                    xtl = ax.get_xticklabels()
+                    ax.set_xticklabels(xtl, rotation=45)
+            plt.tight_layout()
+            plt.subplots_adjust(hspace=0, wspace=0)
+            
+            if savefig:
+                plt.savefig(filename)
+            if self.show_plot:
+                plt.show()
+            else:
+                plt.close()
 
     def sequential_training_plot(self, savefig = False, filename = None):
 
@@ -593,31 +617,42 @@ class Delfi():
         pts_per_inch = 72.27
         inch_per_cm = 2.54
         width = columnwidth/inch_per_cm
-        plt.rcParams.update({'figure.figsize': [width, width / aspect],
-                          'backend': 'pdf',
-                          'font.size': 15,
-                          'legend.fontsize': 15,
-                          'legend.frameon': False,
-                          'legend.loc': 'best',
-                          'lines.markersize': 3,
-                          'lines.linewidth': .5,
-                          'axes.linewidth': .5,
-                          'axes.edgecolor': 'black'})
+        with mpl.rc_context({'figure.figsize': [width, width / aspect],
+                                'backend': 'pdf',
+                                'font.size': 15,
+                                'legend.fontsize': 15,
+                                'legend.frameon': False,
+                                'legend.loc': 'best',
+                                'lines.markersize': 3,
+                                'lines.linewidth': .5,
+                                'axes.linewidth': .5,
+                                'axes.edgecolor': 'black'}):
+            
+                            #plt.rcParams.update({'figure.figsize': [width, width / aspect],
+                            #'backend': 'pdf',
+                            #'font.size': 15,
+                            #'legend.fontsize': 15,
+                            #'legend.frameon': False,
+                            #'legend.loc': 'best',
+                            #'lines.markersize': 3,
+                            #'lines.linewidth': .5,
+                            #'axes.linewidth': .5,
+                            #'axes.edgecolor': 'black'})
                           
-        # Trace plot of the training and validation loss as a function of the number of simulations ran
-        plt.scatter(self.sequential_nsims, self.stacked_sequential_training_loss, s = 20, alpha = 0.5, color = 'red')
-        plt.plot(self.sequential_nsims, self.stacked_sequential_training_loss, color = 'red', lw = 2, alpha = 0.5, label = 'training loss')
-        plt.scatter(self.sequential_nsims, self.stacked_sequential_validation_loss, s = 20, alpha = 0.5, color = 'blue')
-        plt.plot(self.sequential_nsims, self.stacked_sequential_validation_loss, color = 'blue', lw = 2, alpha = 0.5, label = 'validation loss')
+            # Trace plot of the training and validation loss as a function of the number of simulations ran
+            plt.scatter(self.sequential_nsims, self.stacked_sequential_training_loss, s = 20, alpha = 0.5, color = 'red')
+            plt.plot(self.sequential_nsims, self.stacked_sequential_training_loss, color = 'red', lw = 2, alpha = 0.5, label = 'training loss')
+            plt.scatter(self.sequential_nsims, self.stacked_sequential_validation_loss, s = 20, alpha = 0.5, color = 'blue')
+            plt.plot(self.sequential_nsims, self.stacked_sequential_validation_loss, color = 'blue', lw = 2, alpha = 0.5, label = 'validation loss')
 
-        plt.xlabel(r'number of simulations, $n_\mathrm{sims}$')
-        plt.ylabel(r'negative log loss, $-\mathrm{ln}\,U$')
-        plt.tight_layout()
-        plt.legend()
+            plt.xlabel(r'number of simulations, $n_\mathrm{sims}$')
+            plt.ylabel(r'negative log loss, $-\mathrm{ln}\,U$')
+            plt.tight_layout()
+            plt.legend()
 
-        if savefig:
-            plt.savefig(filename)
-        if self.show_plot:
-            plt.show()
-        else:
-            plt.close()
+            if savefig:
+                plt.savefig(filename)
+            if self.show_plot:
+                plt.show()
+            else:
+                plt.close()
