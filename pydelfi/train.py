@@ -2,21 +2,8 @@ import tensorflow as tf
 import numpy as np
 import numpy.random as rng
 import os
-#import tqdm
 from tqdm.auto import tqdm
 
-def isnotebook():
-    try:
-        shell = get_ipython().__class__.__name__
-        if shell == 'ZMQInteractiveShell':
-            return True   # Jupyter notebook or qtconsole
-        elif shell == 'TerminalInteractiveShell':
-            return False  # Terminal running IPython
-        else:
-            return False  # Other type (?)
-    except NameError:
-        return False
-                    
 class ConditionalTrainer():
     
     def __init__(self, model, optimizer=tf.train.AdamOptimizer, optimizer_arguments={}):
@@ -28,7 +15,6 @@ class ConditionalTrainer():
             """
         
         self.model = model
-        self.nb = isnotebook()
         self.train_optimizer = optimizer(**optimizer_arguments).minimize(self.model.trn_loss)
         self.train_reg_optimizer = optimizer(**optimizer_arguments).minimize(self.model.reg_loss)
 
@@ -80,9 +66,6 @@ class ConditionalTrainer():
         
         # Main training loop
         if progress_bar:
-            #if self.nb:
-            #    pbar = tqdm.tqdm_notebook(total = epochs, desc = "Training")
-            #else:
             pbar = tqdm(total = epochs, desc = "Training")
             pbar.set_postfix(ordered_dict={"train loss":0, "val loss":0}, refresh=True)
         for epoch in range(epochs):

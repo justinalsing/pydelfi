@@ -8,21 +8,8 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 import pydelfi.priors as priors
 import numpy as np
-#import tqdm
 from tqdm.auto import tqdm
 import scipy.optimize as optimization
-
-def isnotebook():
-    try:
-        shell = get_ipython().__class__.__name__
-        if shell == 'ZMQInteractiveShell':
-            return True   # Jupyter notebook or qtconsole
-        elif shell == 'TerminalInteractiveShell':
-            return False  # Terminal running IPython
-        else:
-            return False  # Other type (?)
-    except NameError:
-        return False
 
 class Delfi():
 
@@ -139,9 +126,6 @@ class Delfi():
             self.red_op = red_op
         else:
             self.use_mpi = False
-
-        # Are we in a jupyter notebook or not?
-        self.nb = isnotebook()
 
         # Show progress bars?
         self.progress_bar = progress_bar
@@ -291,9 +275,6 @@ class Delfi():
         i_acpt = self.inds_acpt[0]
         err_msg = 'Simulator returns {:s} for parameter values: {} (rank {:d})'
         if self.progress_bar:
-            #if self.nb:
-            #    pbar = tqdm.tqdm_notebook(total = self.inds_acpt[-1], desc = "Simulations")
-            #else:
             pbar = tqdm(total = self.inds_acpt[-1], desc = "Simulations")
         while i_acpt <= self.inds_acpt[-1]:
             try:
