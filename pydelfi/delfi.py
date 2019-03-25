@@ -10,14 +10,16 @@ import pydelfi.priors as priors
 import numpy as np
 from tqdm.auto import tqdm
 import scipy.optimize as optimization
+import pickle
 
 class Delfi():
 
     def __init__(self, data, prior, nde, \
-                 Finv= None, theta_fiducial = None, param_limits = None, param_names=None, nwalkers=100, \
-                 posterior_chain_length=1000, proposal_chain_length=100, \
-                 rank=0, n_procs=1, comm=None, red_op=None, \
-                 show_plot=True, results_dir = "", progress_bar=True, input_normalization = None, restore_file = None):
+                 Finv = None, theta_fiducial = None, param_limits = None, param_names = None, nwalkers = 100, \
+                 posterior_chain_length = 1000, proposal_chain_length = 100, \
+                 rank = 0, n_procs = 1, comm = None, red_op = None, \
+                 show_plot = True, results_dir = "", progress_bar = True, input_normalization = None,
+                 graph_restore_filename = "graph_checkpoint", restore_filename = "restore.pkl", restore = False, save = True):
         
         # Data
         self.data = data
@@ -38,11 +40,6 @@ class Delfi():
         # Tensorflow session for the NDE training
         self.sess = tf.Session(config = tf.ConfigProto())
         self.sess.run(tf.global_variables_initializer())
-        
-        # Restore the graph if a file is passed
-        if restore_file is not None:
-            saver = tf.train.Saver()
-            saver.restore(self.sess, restore_file)
         
         # Parameter limits
         if param_limits is not None:
@@ -129,6 +126,30 @@ class Delfi():
 
         # Show progress bars?
         self.progress_bar = progress_bar
+        
+        # Filenames for saving/restoring graph and attributes
+        self.graph_restore_filename = results_dir + graph_restore_filename
+        self.restore_filename = results_dir + restore_filename
+        
+        # Save attributes of the ojbect as you go?
+        self.save = save
+
+        # Restore the graph and dynamic object attributes if restore = True
+        if restore == True:
+            
+            # Restore the graph
+            saver = tf.train.Saver()
+            saver.restore(self.sess, self.graph_restore_filename)
+
+            # Restore the dynamic object attributes
+            self.stacking_weights, self.posterior_samples, self.proposal_samples, self.training_loss, self.validation_loss, self.stacked_sequential_training_loss, self.stacked_sequential_validation_loss, self.sequential_nsims, self.ps, self.xs = pickle.load(open(self.restore_filename, 'rb'))
+
+    # Save object attributes
+    def saver(self):
+    
+        f = open(self.restore_filename, 'wb')
+        pickle.dump([self.stacking_weights, self.posterior_samples, self.proposal_samples, self.training_loss, self.validation_loss, self.stacked_sequential_training_loss, self.stacked_sequential_validation_loss, self.sequential_nsims, self.ps, self.xs], f)
+        f.close()
     
     # Divide list of jobs between MPI processes
     def allocate_jobs(self, n_jobs):
@@ -251,12 +272,16 @@ class Delfi():
             self.add_simulations(xs_batch, ps_batch)
             
             # Re-train the networks
-            self.train_ndes(training_data=[self.x_train, self.y_train], batch_size=max(self.n_sims//8, batch_size), validation_split=validation_split, epochs=epochs, patience=patience, saver_name=None)
+            self.train_ndes(training_data=[self.x_train, self.y_train], batch_size=max(self.n_sims//8, batch_size), validation_split=validation_split, epochs=epochs, patience=patience)
 
             # Save the losses
             self.stacked_sequential_training_loss.append(np.sum(np.array([self.training_loss[n][-1]*self.stacking_weights[n] for n in range(self.n_ndes)])))
             self.stacked_sequential_validation_loss.append(np.sum(np.array([self.validation_loss[n][-1]*self.stacking_weights[n] for n in range(self.n_ndes)])))
             self.sequential_nsims.append(self.n_sims)
+
+            # Save attributes if save == True
+            if self.save == True:
+                self.saver()
     
     # Run n_batch simulations
     def run_simulation_batch(self, n_batch, ps, simulator, compressor, simulator_args, compressor_args, seed_generator = None, sub_batch = 1):
@@ -363,7 +388,7 @@ class Delfi():
             self.load_simulations(xs_batch, ps_batch)
 
             # Train the network on these initial simulations
-            self.train_ndes(training_data=[self.x_train, self.y_train], batch_size=max(self.n_sims//8, batch_size), validation_split=validation_split, epochs=epochs, patience=patience, saver_name=None)
+            self.train_ndes(training_data=[self.x_train, self.y_train], batch_size=max(self.n_sims//8, batch_size), validation_split=validation_split, epochs=epochs, patience=patience)
             self.stacked_sequential_training_loss.append(np.sum(np.array([self.training_loss[n][-1]*self.stacking_weights[n] for n in range(self.n_ndes)])))
             self.stacked_sequential_validation_loss.append(np.sum(np.array([self.validation_loss[n][-1]*self.stacking_weights[n] for n in range(self.n_ndes)])))
             self.sequential_nsims.append(self.n_sims)
@@ -387,6 +412,10 @@ class Delfi():
                     self.triangle_plot([self.posterior_samples], \
                                     savefig=True, \
                                     filename='{}seq_train_post_0.pdf'.format(self.results_dir))
+    
+            # Save attributes if save == True
+            if self.save == True:
+                self.saver()
 
         # Loop through a number of populations
         for i in range(n_populations):
@@ -425,7 +454,7 @@ class Delfi():
                 self.add_simulations(xs_batch, ps_batch)
         
                 # Train the network on these initial simulations
-                self.train_ndes(training_data=[self.x_train, self.y_train], batch_size=max(self.n_sims//8, batch_size), validation_split=0.1, epochs=epochs, patience=patience, saver_name=None)
+                self.train_ndes(training_data=[self.x_train, self.y_train], batch_size=max(self.n_sims//8, batch_size), validation_split=0.1, epochs=epochs, patience=patience)
                 self.stacked_sequential_training_loss.append(np.sum(np.array([self.training_loss[n][-1]*self.stacking_weights[n] for n in range(self.n_ndes)])))
                 self.stacked_sequential_validation_loss.append(np.sum(np.array([self.validation_loss[n][-1]*self.stacking_weights[n] for n in range(self.n_ndes)])))
                 self.sequential_nsims.append(self.n_sims)
@@ -456,7 +485,7 @@ class Delfi():
                     # Plot the training loss convergence
                     self.sequential_training_plot(savefig=True, filename='{}seq_train_loss.pdf'.format(self.results_dir))
 
-    def train_ndes(self, training_data=None, batch_size=100, validation_split=0.1, epochs=500, patience=20, saver_name=None, mode='samples'):
+    def train_ndes(self, training_data=None, batch_size=100, validation_split=0.1, epochs=500, patience=20, mode='samples'):
     
         # Set the default training data if none
         if training_data is None:
@@ -465,7 +494,7 @@ class Delfi():
         # Train the networks
         for n in range(self.n_ndes):
             # Train the NDE
-            val_loss, train_loss = self.trainer[n].train(self.sess, training_data, validation_split = validation_split, epochs=epochs, batch_size=batch_size, progress_bar=self.progress_bar, patience=patience, saver_name='{}tmp_model'.format(self.results_dir), mode=mode)
+            val_loss, train_loss = self.trainer[n].train(self.sess, training_data, validation_split = validation_split, epochs=epochs, batch_size=batch_size, progress_bar=self.progress_bar, patience=patience, saver_name=self.graph_restore_filename, mode=mode)
         
             # Save the training and validation losses
             self.training_loss[n] = np.concatenate([self.training_loss[n], train_loss])
@@ -474,6 +503,10 @@ class Delfi():
         # Update weights for stacked density estimator
         self.stacking_weights = np.exp(-np.array([self.training_loss[i][-1] for i in range(self.n_ndes)]))
         self.stacking_weights = self.stacking_weights/sum(self.stacking_weights)
+
+        # if save == True, save everything
+        if self.save == True:
+            self.saver()
 
     def load_simulations(self, xs_batch, ps_batch):
         
@@ -544,7 +577,7 @@ class Delfi():
             fisher_y_train = xs.astype(np.float32).reshape((3*n_batch, self.npar))
             
             # Train the networks on these initial simulations
-            self.train_ndes(training_data=[fisher_x_train, fisher_y_train, np.atleast_2d(fisher_logpdf_train).reshape(-1,1)], validation_split = validation_split, epochs=epochs, batch_size=batch_size, patience=patience, saver_name=None, mode='regression')
+            self.train_ndes(training_data=[fisher_x_train, fisher_y_train, np.atleast_2d(fisher_logpdf_train).reshape(-1,1)], validation_split = validation_split, epochs=epochs, batch_size=batch_size, patience=patience, mode='regression')
 
             # Generate posterior samples
             if plot==True:

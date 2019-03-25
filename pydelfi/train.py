@@ -114,6 +114,6 @@ class ConditionalTrainer():
 
         # Restore best model
         if saver_name is not None:
-            saver.restore(sess,"./"+saver_name)
+            saver.restore(sess, saver_name)
 
         return np.array(validation_losses), np.array(training_losses)
