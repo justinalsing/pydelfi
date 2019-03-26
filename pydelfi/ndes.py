@@ -9,7 +9,7 @@ class ConditionalGaussianMade:
     inputs which is always conditioned on, and whose probability it doesn't model.
     """
 
-    def __init__(self, n_inputs, n_outputs, n_hiddens, act_fun, output_order='sequential', mode='sequential', input=None, output=None):
+    def __init__(self, n_parameters, n_data, n_hiddens, act_fun, output_order='sequential', mode='sequential', input_parameters=None, input_data=None, logpdf=None):
         """
         Constructor.
         :param n_inputs: number of (conditional) inputs
@@ -23,16 +23,16 @@ class ConditionalGaussianMade:
         """
 
         # save input arguments
-        self.n_inputs = n_inputs
-        self.n_outputs = n_outputs
+        self.n_parameters = n_parameters
+        self.n_data = n_data
         self.n_hiddens = n_hiddens
         self.act_fun = act_fun
         self.mode = mode
 
         # create network's parameters
-        degrees = self.create_degrees(n_outputs, n_hiddens, output_order, mode)
+        degrees = self.create_degrees(output_order)
         Ms, Mmp = self.create_masks(degrees)
-        Wx, Ws, bs, Wm, bm, Wp, bp = self.create_weights_conditional(n_inputs, n_outputs, n_hiddens, None)
+        Wx, Ws, bs, Wm, bm, Wp, bp = self.create_weights_conditional(None)
         self.parms = [Wx] + Ws + bs + [Wm, bm, Wp, bp]
         self.output_order = degrees[0]
 
@@ -40,11 +40,12 @@ class ConditionalGaussianMade:
         f = self.act_fun
 
         # input matrices
-        self.input = tf.placeholder(dtype=dtype,shape=[None,n_inputs],name='x') if input is None else input
-        self.y = tf.placeholder(dtype=dtype,shape=[None,n_outputs],name='y') if output is None else output
+        self.parameters = tf.placeholder(dtype=dtype,shape=[None,n_parameters],name='parameters') if input_parameters is None else input_parameters
+        self.data = tf.placeholder(dtype=dtype,shape=[None,n_data],name='data') if input_data is None else input_data
+        self.logpdf = tf.placeholder(dtype=dtype,shape=[None,1],name='logpdf') if logpdf is None else logpdf
 
         # feedforward propagation
-        h = f(tf.matmul(self.input, Wx) + tf.matmul(self.y, Ms[0] * Ws[0]) + bs[0],name='h1')
+        h = f(tf.matmul(self.parameters, Wx) + tf.matmul(self.data, Ms[0] * Ws[0]) + bs[0],name='h1')
         for l, (M, W, b) in enumerate(zip(Ms[1:], Ws[1:], bs[1:])):
             h = f(tf.matmul(h, M * W) + b,name='h'+str(l + 2))
 
@@ -55,20 +56,20 @@ class ConditionalGaussianMade:
         self.logp = tf.add(tf.matmul(h, Mmp * Wp), bp, name='logp')
 
         # random numbers driving made
-        self.u = tf.exp(0.5 * self.logp) * (self.y - self.m)
+        self.u = tf.exp(0.5 * self.logp) * (self.data - self.m)
 
         # log likelihoods
-        self.L = tf.multiply(-0.5,n_outputs * np.log(2 * np.pi) + \
+        self.L = tf.multiply(-0.5,self.n_data * np.log(2 * np.pi) + \
                      tf.reduce_sum(self.u ** 2 - self.logp, axis=1,keepdims=True),name='L')
 
         # train objective
-        self.trn_loss = -tf.reduce_mean(self.L, name='trn_loss')
+        self.trn_loss = -tf.reduce_mean(self.L,name='trn_loss')
+        self.reg_loss = tf.losses.mean_squared_error(self.L, self.logpdf)
 
-    def create_degrees(self, n_inputs, n_hiddens, input_order, mode):
+    def create_degrees(self, input_order):
         """
         Generates a degree for each hidden and input unit. A unit with degree d can only receive input from units with
         degree less than d.
-        :param n_inputs: the number of inputs
         :param n_hiddens: a list with the number of hidden units
         :param input_order: the order of the inputs; can be 'random', 'sequential', or an array of an explicit order
         :param mode: the strategy for assigning degrees to hidden nodes: can be 'random' or 'sequential'
@@ -81,31 +82,31 @@ class ConditionalGaussianMade:
         if isinstance(input_order, str):
 
             if input_order == 'random':
-                degrees_0 = np.arange(1, n_inputs + 1)
+                degrees_0 = np.arange(1, self.n_data + 1)
                 rng.shuffle(degrees_0)
 
             elif input_order == 'sequential':
-                degrees_0 = np.arange(1, n_inputs + 1)
+                degrees_0 = np.arange(1, self.n_data + 1)
 
             else:
-                raise ValueError('invalid input order')
+                raise ValueError('invalid output order')
 
         else:
             input_order = np.array(input_order)
-            assert np.all(np.sort(input_order) == np.arange(1, n_inputs + 1)), 'invalid input order'
+            assert np.all(np.sort(input_order) == np.arange(1, self.n_data + 1)), 'invalid input order'
             degrees_0 = input_order
         degrees.append(degrees_0)
 
         # create degrees for hiddens
-        if mode == 'random':
-            for N in n_hiddens:
-                min_prev_degree = min(np.min(degrees[-1]), n_inputs - 1)
-                degrees_l = rng.randint(min_prev_degree, n_inputs, N)
+        if self.mode == 'random':
+            for N in self.n_hiddens:
+                min_prev_degree = min(np.min(degrees[-1]), self.n_data - 1)
+                degrees_l = rng.randint(min_prev_degree, self.n_data, N)
                 degrees.append(degrees_l)
 
-        elif mode == 'sequential':
-            for N in n_hiddens:
-                degrees_l = np.arange(N) % max(1, n_inputs - 1) + min(1, n_inputs - 1)
+        elif self.mode == 'sequential':
+            for N in self.n_hiddens:
+                degrees_l = np.arange(N) % max(1, self.n_data - 1) + min(1, self.n_data - 1)
                 degrees.append(degrees_l)
 
         else:
@@ -132,12 +133,9 @@ class ConditionalGaussianMade:
 
         return Ms, Mmp
     
-    def create_weights_conditional(self, n_inputs, n_outputs, n_hiddens, n_comps):
+    def create_weights_conditional(self, n_comps):
         """
         Creates all learnable weight matrices and bias vectors.
-        :param n_inputs: the number of inputs
-        :param n_outputs: the number of outputs
-        :param n_hiddens: a list with the number of hidden units
         :param n_comps: number of gaussian components
         :return: weights and biases, as tensorflow variables
         """
@@ -145,9 +143,9 @@ class ConditionalGaussianMade:
         Ws = []
         bs = []
 
-        n_units = np.concatenate(([n_inputs], n_hiddens))
+        n_units = np.concatenate(([self.n_data], self.n_hiddens))
         
-        Wx = tf.get_variable("Wx", [n_inputs, n_hiddens[0]], initializer = tf.random_normal_initializer(0., np.sqrt(1./(n_inputs + 1))) )
+        Wx = tf.get_variable("Wx", [self.n_parameters, self.n_hiddens[0]], initializer = tf.random_normal_initializer(0., np.sqrt(1./(self.n_parameters + 1))) )
 
         for l, (N0, N1) in enumerate(zip(n_units[:-1], n_units[1:])):
 
@@ -158,21 +156,21 @@ class ConditionalGaussianMade:
 
         if n_comps is None:
 
-            Wm = tf.get_variable("Wm", [n_units[-1], n_inputs], initializer = tf.random_normal_initializer(0., np.sqrt(1./(n_units[-1] + 1))) )
-            Wp = tf.get_variable("Wp", [n_units[-1], n_inputs], initializer = tf.random_normal_initializer(0., np.sqrt(1./(n_units[-1] + 1))) )
-            bm = tf.get_variable("bm", [1, n_inputs], initializer = tf.constant_initializer(0.0) )
-            bp = tf.get_variable("bp", [1, n_inputs], initializer = tf.constant_initializer(0.0) )
+            Wm = tf.get_variable("Wm", [n_units[-1], self.n_data], initializer = tf.random_normal_initializer(0., np.sqrt(1./(n_units[-1] + 1))) )
+            Wp = tf.get_variable("Wp", [n_units[-1], self.n_data], initializer = tf.random_normal_initializer(0., np.sqrt(1./(n_units[-1] + 1))) )
+            bm = tf.get_variable("bm", [1, self.n_data], initializer = tf.constant_initializer(0.0) )
+            bp = tf.get_variable("bp", [1, self.n_data], initializer = tf.constant_initializer(0.0) )
 
             return Wx, Ws, bs, Wm, bm, Wp, bp
 
         else:
 
-            Wm = tf.get_variable("Wm", [n_units[-1], n_inputs, n_comps], initializer = tf.random_normal_initializer(0., np.sqrt(1./(n_units[-1] + 1))) )
-            Wp = tf.get_variable("Wp", [n_units[-1], n_inputs, n_comps], initializer = tf.random_normal_initializer(0., np.sqrt(1./(n_units[-1] + 1))) )
-            Wa = tf.get_variable("Wa", [n_units[-1], n_inputs, n_comps], initializer = tf.random_normal_initializer(0., np.sqrt(1./(n_units[-1] + 1))) )
-            bm = tf.get_variable("bm", [n_inputs, n_comps], initializer = tf.random_normal_initializer() )
-            bp = tf.get_variable("bp", [n_inputs, n_comps], initializer = tf.random_normal_initializer() )
-            ba = tf.get_variable("ba", [n_inputs, n_comps], initializer = tf.random_normal_initializer() )
+            Wm = tf.get_variable("Wm", [n_units[-1], self.n_data, n_comps], initializer = tf.random_normal_initializer(0., np.sqrt(1./(n_units[-1] + 1))) )
+            Wp = tf.get_variable("Wp", [n_units[-1], self.n_data, n_comps], initializer = tf.random_normal_initializer(0., np.sqrt(1./(n_units[-1] + 1))) )
+            Wa = tf.get_variable("Wa", [n_units[-1], self.n_data, n_comps], initializer = tf.random_normal_initializer(0., np.sqrt(1./(n_units[-1] + 1))) )
+            bm = tf.get_variable("bm", [self.n_data, n_comps], initializer = tf.random_normal_initializer() )
+            bp = tf.get_variable("bp", [self.n_data, n_comps], initializer = tf.random_normal_initializer() )
+            ba = tf.get_variable("ba", [self.n_data, n_comps], initializer = tf.random_normal_initializer() )
 
             return Wx, Ws, bs, Wm, bm, Wp, bp, Wa, ba
 
@@ -186,31 +184,9 @@ class ConditionalGaussianMade:
         """
         
         x, y = xy
-        lprob = sess.run(self.L,feed_dict={self.input:x, self.y:y})
-        
+        lprob = sess.run(self.L,feed_dict={self.parameters:x,self.data:y})[0]
+
         return lprob if log else np.exp(lprob)
-
-    def gen(self, x, sess, n_samples=1, u=None):
-        """
-        Generate samples from made conditioned on x. Requires as many evaluations as number of outputs.
-        :param x: input vector
-        :param sess: tensorflow session where the graph is run
-        :param n_samples: number of samples
-        :param u: random numbers to use in generating samples; if None, new random numbers are drawn
-        :return: samples
-        """
-
-        y = np.zeros([n_samples, self.n_outputs], dtype=dtype)
-        u = rng.randn(n_samples, self.n_outputs).astype(dtype) if u is None else u
-
-        xy = (np.tile(x, [n_samples, 1]), y)
-
-        for i in range(1, self.n_outputs + 1):
-            m, logp = self.eval_comps(xy,sess)
-            idx = np.argwhere(self.output_order == i)[0, 0]
-            y[:, idx] = m[:, idx] + np.exp(np.minimum(-0.5 * logp[:, idx], 10.0)) * u[:, idx]
-
-        return y
 
 
 class ConditionalMaskedAutoregressiveFlow:
