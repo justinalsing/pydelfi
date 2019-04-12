@@ -5,8 +5,7 @@ dtype = tf.float32
 
 class ConditionalGaussianMade:
     """
-    Implements a Made, where each conditional probability is modelled by a single gaussian component. The made has
-    inputs which is always conditioned on, and whose probability it doesn't model.
+    Implements a Made, where each conditional probability is modelled by a single gaussian component.
     """
 
     def __init__(self, n_parameters, n_data, n_hiddens, act_fun, output_order='sequential', mode='sequential', input_parameters=None, input_data=None, logpdf=None):
