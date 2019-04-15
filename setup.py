@@ -14,6 +14,7 @@ setup(name='pydelfi',
           "getdist",
           "emcee",
           "mpi4py",
-          "scipy"
+          "scipy",
+          "tqdm"
       ])
 
