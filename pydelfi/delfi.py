@@ -205,7 +205,7 @@ class Delfi():
     # NDE log likelihood (individual NDE)
     def log_likelihood_individual(self, i, theta):
     
-        lnL = self.nde[i].eval((np.atleast_2d((theta-self.p_mean)/self.p_std), np.atleast_2d((self.data-self.x_mean)/self.x_std)), self.sess)
+        lnL = self.nde[i].eval((np.atleast_2d((theta-self.p_mean)/self.p_std), np.atleast_2d((self.data-self.x_mean)/self.x_std)), self.sess)[0]
     
         if np.isnan(lnL) == True:
             return -1e300
@@ -218,7 +218,7 @@ class Delfi():
         # Stack the likelihoods
         L = 0
         for n in range(self.n_ndes):
-            L += self.stacking_weights[n]*np.exp(self.nde[n].eval((np.atleast_2d((theta-self.p_mean)/self.p_std), np.atleast_2d((self.data-self.x_mean)/self.x_std)), self.sess))
+            L += self.stacking_weights[n]*np.exp(self.nde[n].eval((np.atleast_2d((theta-self.p_mean)/self.p_std), np.atleast_2d((self.data-self.x_mean)/self.x_std)), self.sess))[0]
         lnL = np.log(L)
         if np.isnan(lnL) == True:
             return -1e300
@@ -667,23 +667,10 @@ class Delfi():
                                 'lines.linewidth': .5,
                                 'axes.linewidth': .5,
                                 'axes.edgecolor': 'black'}):
-            
-                            #plt.rcParams.update({'figure.figsize': [width, width / aspect],
-                            #'backend': 'pdf',
-                            #'font.size': 15,
-                            #'legend.fontsize': 15,
-                            #'legend.frameon': False,
-                            #'legend.loc': 'best',
-                            #'lines.markersize': 3,
-                            #'lines.linewidth': .5,
-                            #'axes.linewidth': .5,
-                            #'axes.edgecolor': 'black'})
                           
             # Trace plot of the training and validation loss as a function of the number of simulations ran
-            plt.scatter(self.sequential_nsims, self.stacked_sequential_training_loss, s = 20, alpha = 0.5, color = 'red')
-            plt.plot(self.sequential_nsims, self.stacked_sequential_training_loss, color = 'red', lw = 2, alpha = 0.5, label = 'training loss')
-            plt.scatter(self.sequential_nsims, self.stacked_sequential_validation_loss, s = 20, alpha = 0.5, color = 'blue')
-            plt.plot(self.sequential_nsims, self.stacked_sequential_validation_loss, color = 'blue', lw = 2, alpha = 0.5, label = 'validation loss')
+            plt.plot(self.sequential_nsims, self.stacked_sequential_training_loss, markersize=5, marker='o', lw=2, alpha=0.7, label = 'training loss')
+            plt.plot(self.sequential_nsims, self.stacked_sequential_validation_loss, markersize=5, marker='o', lw=2, alpha=0.7, label = 'validation loss')
 
             plt.xlabel(r'number of simulations, $n_\mathrm{sims}$')
             plt.ylabel(r'negative log loss, $-\mathrm{ln}\,U$')

@@ -183,7 +183,7 @@ class ConditionalGaussianMade:
         """
         
         x, y = xy
-        lprob = sess.run(self.L,feed_dict={self.parameters:x,self.data:y})[0]
+        lprob = sess.run(self.L,feed_dict={self.parameters:x,self.data:y})
 
         return lprob if log else np.exp(lprob)
 
@@ -261,7 +261,7 @@ class ConditionalMaskedAutoregressiveFlow:
         """
         
         x, y = xy
-        lprob = sess.run(self.L,feed_dict={self.parameters:x,self.data:y})[0]
+        lprob = sess.run(self.L,feed_dict={self.parameters:x,self.data:y})
 
         return lprob if log else np.exp(lprob)
 
@@ -345,7 +345,7 @@ class MixtureDensityNetwork:
         """
         
         x, y = xy
-        lprob = sess.run(self.L,feed_dict={self.parameters:x,self.data:y})[0]
+        lprob = sess.run(self.L,feed_dict={self.parameters:x,self.data:y})
 
         return lprob if log else np.exp(lprob)
 
