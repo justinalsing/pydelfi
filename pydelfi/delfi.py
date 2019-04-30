@@ -203,59 +203,42 @@ class Delfi():
         return target
     
     # NDE log likelihood (individual NDE)
-    def log_likelihood_individual(self, i, theta):
+    def log_likelihood_individual(self, i, theta, data):
     
-        lnL = self.nde[i].eval((np.atleast_2d((theta-self.p_mean)/self.p_std), np.atleast_2d((self.data-self.x_mean)/self.x_std)), self.sess)[0]
+        lnL = self.nde[i].eval((np.atleast_2d((theta-self.p_mean)/self.p_std), np.atleast_2d((data-self.x_mean)/self.x_std)), self.sess)
     
-        if np.isnan(lnL) == True:
-            return -1e300
-        else:
-            return lnL
+        return lnL
 
     # NDE log likelihood (stacked)
-    def log_likelihood_stacked(self, theta):
+    def log_likelihood_stacked(self, theta, data):
 
         # Stack the likelihoods
         L = 0
         for n in range(self.n_ndes):
-            L += self.stacking_weights[n]*np.exp(self.nde[n].eval((np.atleast_2d((theta-self.p_mean)/self.p_std), np.atleast_2d((self.data-self.x_mean)/self.x_std)), self.sess))[0]
+            L += self.stacking_weights[n]*np.exp(self.nde[n].eval((np.atleast_2d((theta-self.p_mean)/self.p_std), np.atleast_2d((data-self.x_mean)/self.x_std)), self.sess))
         lnL = np.log(L)
-        if np.isnan(lnL) == True:
-            return -1e300
-        else:
-            return lnL
+        lnL[np.isnan(lnL),:] = -1e300
+        return lnL
 
-    # Log posterior
-    def log_posterior_stacked(self, x):
+    # Log posterior (stacked)
+    def log_posterior_stacked(self, theta, data):
         
-        if self.prior.pdf(x) == 0:
-            return -1e300
-        else:
-            return self.log_likelihood_stacked(x) + self.prior.logpdf(x)
+        return self.log_likelihood_stacked(theta, data) + self.prior.logpdf(theta)
 
-    # Log posterior
-    def log_posterior_individual(self, i, x):
+    # Log posterior (individual)
+    def log_posterior_individual(self, i, theta, data):
         
-        if self.prior.pdf(x) == 0:
-            return -1e300
-        else:
-            return self.log_likelihood_individual(i, x) + self.prior.logpdf(x)
+        return self.log_likelihood_individual(i, theta, data) + self.prior.logpdf(theta)
     
     # Log posterior
     def log_geometric_mean_proposal_stacked(self, x):
         
-        if self.prior.pdf(x) == 0:
-            return -1e300
-        else:
-            return 0.5 * (self.log_likelihood_stacked(x) + 2 * self.prior.logpdf(x) )
+        return 0.5 * (self.log_likelihood_stacked(x) + 2 * self.prior.logpdf(x) )
 
     # Log posterior
     def log_geometric_mean_proposal_individual(self, i, x):
         
-        if self.prior.pdf(x) == 0:
-            return -1e300
-        else:
-            return 0.5 * (self.log_likelihood_individual(i, x) + 2 * self.prior.logpdf(x) )
+        return 0.5 * (self.log_likelihood_individual(i, x) + 2 * self.prior.logpdf(x) )
 
     # Bayesian optimization acquisition function
     def acquisition(self, theta):
@@ -264,10 +247,7 @@ class Delfi():
         Ls = np.array([self.log_posterior_individual(i, theta) for i in range(self.n_ndes)])
     
         # Check whether prior is zero or not
-        if self.prior.pdf(theta) == 0:
-            return 0
-        else:
-            return self.log_posterior_stacked(theta)*np.sqrt(np.average((Ls - np.average(Ls, weights = self.stacking_weights, axis=0))**2, weights=self.stacking_weights, axis=0))
+        return self.log_posterior_stacked(theta)*np.sqrt(np.average((Ls - np.average(Ls, weights = self.stacking_weights, axis=0))**2, weights=self.stacking_weights, axis=0))
                 
     # Bayesian optimization training
     def bayesian_optimization_training(self, simulator, compressor, n_batch, n_populations, n_optimizations = 10, \
@@ -374,6 +354,24 @@ class Delfi():
         sampler.run_mcmc(pos, main_chain)
     
         return sampler.flatchain
+
+    # Population monte carlo sampler
+    def pmc(self, log_likelihood=None, n_populations, n_particles, p0, pvals):
+    
+        # Initialize
+        S = p0 # population
+        pvals = pvals # weights
+        
+        # Loop over populations
+        for p in range(n_populations):
+    
+            # Samples
+            p0 = S[np.random.choice(len(S), len(S), p=pvals)] + np.array([np.dot(L, np.random.normal(self.n_parameters)) for i in range(len(S))])
+
+            # Compute weights
+            pvals = np.array([log_likelihood(p0[i,:])/sum(pvals*multivariate_normal.pdf(S, mean=p0[i,:], cov=C)) for i in range(len(S))])
+            
+        return p0, pvals
 
     def sequential_training(self, simulator, compressor, n_initial, n_batch, n_populations, proposal = None, \
                             simulator_args = None, compressor_args = None, safety = 5, plot = True, batch_size = 100, \

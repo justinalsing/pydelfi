@@ -37,7 +37,7 @@ class TruncatedGaussian():
 
     def logpdf(self, x):
         
-        return self.loguniform(x) - 0.5*self.logdet - 0.5*np.dot((x - self.mean), np.dot(self.Cinv,(x - self.mean)) )
+        return np.array([self.loguniform(xx) - 0.5*self.logdet - 0.5*np.dot((xx - self.mean), np.dot(self.Cinv,(xx - self.mean)) ) for xx in x])
 
 
 class Uniform():
@@ -49,13 +49,13 @@ class Uniform():
 
     def logpdf(self, x):
 
-        inrange = np.prod(x > self.lower)*np.prod(x < self.upper)
-        return inrange*np.log(np.prod(self.upper-self.lower)) - (1 - inrange)*1e300
+        inrange = lambda y: np.prod(y > self.lower)*np.prod(y < self.upper)
+        return np.array([inrange(xx)*np.log(np.prod(self.upper-self.lower)) - (1 - inrange(xx))*1e300 for xx in x])
     
     def pdf(self, x):
         
-        inrange = np.prod(x > self.lower)*np.prod(x < self.upper)
-        return inrange*np.prod(self.upper-self.lower)
+        inrange = lambda y: np.prod(y > self.lower)*np.prod(y < self.upper)
+        return np.array([inrange(xx)*np.prod(self.upper-self.lower) for xx in x])
 
     def draw(self):
 
