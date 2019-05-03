@@ -27,6 +27,6 @@ If you have a set of pre-run simulations you'd like to throw in rather than allo
 
 If you are interested in using pydelfi with nuisance hardened data compression to project out nuisances ([Alsing & Wandelt 2019](https://arxiv.org/abs/1903.01473v1)), take a look at `jla_sne_marginalized.ipynb`.
 
-**[Documentation](https://pydelfi.readthedocs.io/en/latest/)** can be found here (work in progress).
+Documentation can be found **[here](https://pydelfi.readthedocs.io/en/latest/)** (work in progress).
 
 If you are interested in applying pydelfi to your problem but need some help getting started, or have an application that requires adaptations of the code, don't hesitate to get in touch with us (at justin.alsing@fysik.su.se) or open an issue - we welcome collaboration!
