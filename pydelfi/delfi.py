@@ -370,7 +370,7 @@ class Delfi():
         for p in range(n_populations):
     
             # Samples
-            S1 = S0[np.random.choice(len(S), len(S), p=weights)] + np.array([np.dot(L, np.random.normal(self.n_parameters)) for i in range(len(S))])
+            S1 = S0[np.random.choice(len(S), len(S), p=weights)] + np.array([np.dot(L, np.random.normal(self.npar)) for i in range(len(S))])
 
             # Compute weights
             weights = np.array([log_likelihood(S1[i,:])/sum(weights*multivariate_normal.pdf(S1, mean=S0[i,:], cov=C)) for i in range(len(S0))])
