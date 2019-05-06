@@ -123,8 +123,8 @@ class Delfi():
         else:
             self.posterior_samples = np.array([self.prior.draw() for i in range(self.nwalkers*self.posterior_chain_length)])
             self.proposal_samples = np.array([self.prior.draw() for i in range(self.nwalkers*self.proposal_chain_length)])
-        self.posterior_weights = np.ones(len(self.posterior_samples))
-        self.proposal_weights = np.ones(len(self.proposal_samples))
+        self.posterior_weights = np.ones(len(self.posterior_samples))*1.0/len(self.posterior_samples)
+        self.proposal_weights = np.ones(len(self.proposal_samples))*1.0/len(self.proposal_samples)
     
         # Parameter names and ranges for plotting with GetDist
         self.names = param_names
@@ -372,7 +372,8 @@ class Delfi():
 
             # Compute weights
             weights = np.array([log_likelihood(S1[i,:])/sum(weights*multivariate_normal.pdf(S1, mean=S0[i,:], cov=C)) for i in range(len(S0))])
-        
+            weights = weights/sum(weights)
+            
             # Update covariance matrix
             C = np.cov(S1, aweights=weights, rowvar = 0)
         
