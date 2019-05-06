@@ -363,6 +363,8 @@ class Delfi():
         # Initialize
         S0 = S # population
         weights = weights # weights
+        C = np.cov(S0, aweights=weights, rowvar = 0)
+        L = np.linalg.cholesky(C)
         
         # Loop over populations
         for p in range(n_populations):
@@ -376,7 +378,8 @@ class Delfi():
             
             # Update covariance matrix
             C = np.cov(S1, aweights=weights, rowvar = 0)
-        
+            L = np.linalg.cholesky(C)
+
             # Update population
             S0 = S1
             
