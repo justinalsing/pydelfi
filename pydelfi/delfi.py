@@ -111,18 +111,20 @@ class Delfi():
         self.y_train = tf.placeholder(tf.float32, shape = (None, self.D))
         self.n_sims = 0
         
-        # MCMC chain parameters
+        # MCMC chain parameters for EMCEE
         self.nwalkers = nwalkers
         self.posterior_chain_length = posterior_chain_length
         self.proposal_chain_length = proposal_chain_length
         
-        # MCMC samples of learned posterior
+        # Initialize MCMC chains for posterior and proposal
         if self.asymptotic_posterior is not None:
             self.posterior_samples = np.array([self.asymptotic_posterior.draw() for i in range(self.nwalkers*self.posterior_chain_length)])
             self.proposal_samples = np.array([self.asymptotic_posterior.draw() for i in range(self.nwalkers*self.proposal_chain_length)])
         else:
             self.posterior_samples = np.array([self.prior.draw() for i in range(self.nwalkers*self.posterior_chain_length)])
             self.proposal_samples = np.array([self.prior.draw() for i in range(self.nwalkers*self.proposal_chain_length)])
+        self.posterior_weights = np.ones(len(self.nwalkers*self.posterior_chain_length))
+        self.proposal_weights = np.ones(len(self.nwalkers*self.proposal_chain_length))
     
         # Parameter names and ranges for plotting with GetDist
         self.names = param_names
@@ -356,22 +358,28 @@ class Delfi():
         return sampler.flatchain
 
     # Population monte carlo sampler
-    #def pmc(self, log_likelihood=None, n_populations, n_particles, p0, pvals):
+    def pmc(self, log_likelihood, n_populations, n_particles, S, weights):
     
         # Initialize
-        #     S = p0 # population
-        #pvals = pvals # weights
+        S0 = S # population
+        weights = weights # weights
         
         # Loop over populations
-        #for p in range(n_populations):
+        for p in range(n_populations):
     
             # Samples
-            #    p0 = S[np.random.choice(len(S), len(S), p=pvals)] + np.array([np.dot(L, np.random.normal(self.n_parameters)) for i in range(len(S))])
+            S1 = S0[np.random.choice(len(S), len(S), p=weights)] + np.array([np.dot(L, np.random.normal(self.n_parameters)) for i in range(len(S))])
 
             # Compute weights
-            #pvals = np.array([log_likelihood(p0[i,:])/sum(pvals*multivariate_normal.pdf(S, mean=p0[i,:], cov=C)) for i in range(len(S))])
+            weights = np.array([log_likelihood(S1[i,:])/sum(weights*multivariate_normal.pdf(S1, mean=S0[i,:], cov=C)) for i in range(len(S0))])
+        
+            # Update covariance matrix
+            C = np.cov(S1, aweights=weights, rowvar = 0)
+        
+            # Update population
+            S0 = S1
             
-            #return p0, pvals
+        return S0, weights
 
     def sequential_training(self, simulator, compressor, n_initial, n_batch, n_populations, proposal = None, \
                             simulator_args = None, compressor_args = None, safety = 5, plot = True, batch_size = 100, \
@@ -616,12 +624,12 @@ class Delfi():
                                     savefig=True, \
                                     filename='{}fisher_train_post.pdf'.format(self.results_dir))
 
-    def triangle_plot(self, samples = None, savefig = False, filename = None):
+    def triangle_plot(self, samples = None, weights = None, savefig = False, filename = None):
 
         # Set samples to the posterior samples by default
         if samples is None:
             samples = [self.posterior_samples]
-        mc_samples = [MCSamples(samples=s, names = self.names, labels = self.labels, ranges = self.ranges) for s in samples]
+        mc_samples = [MCSamples(samples=s, weights = None, names = self.names, labels = self.labels, ranges = self.ranges) for s in samples]
 
         # Triangle plot
         with mpl.rc_context():
