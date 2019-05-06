@@ -10,6 +10,7 @@ import pydelfi.priors as priors
 import numpy as np
 from tqdm.auto import tqdm
 import scipy.optimize as optimization
+from scipy.stats import multivariate_normal
 import pickle
 
 class Delfi():
@@ -339,7 +340,7 @@ class Delfi():
     
         # Set the log likelihood (default to the posterior if none given)
         if log_likelihood is None:
-            log_likelihood = self.log_posterior_stacked
+            log_likelihood = lambda x: self.log_posterior_stacked(x, self.data)[0]
         
         # Set up default x0
         if x0 is None:
@@ -432,9 +433,9 @@ class Delfi():
             # Generate posterior samples
             if save_intermediate_posteriors:
                 print('Sampling approximate posterior...')
-                self.posterior_samples = self.emcee_sample(log_likelihood=self.log_posterior_stacked, \
-                                  x0=[self.posterior_samples[-i,:] for i in range(self.nwalkers)], \
-                                  main_chain=self.posterior_chain_length)
+                self.posterior_samples = self.emcee_sample(log_likelihood = lambda x: self.log_posterior_stacked(x, self.data)[0],
+                                                           x0=[self.posterior_samples[-i,:] for i in range(self.nwalkers)], \
+                                                           main_chain=self.posterior_chain_length)
             
                 # Save posterior samples to file
                 f = open('{}posterior_samples_0.dat'.format(self.results_dir), 'w')
@@ -467,7 +468,7 @@ class Delfi():
                 # Sample the current posterior approximation
                 print('Sampling proposal density...')
                 self.proposal_samples = \
-                    self.emcee_sample(log_likelihood=self.log_geometric_mean_proposal_stacked, \
+                    self.emcee_sample(log_likelihood = lambda x: self.log_geometric_mean_proposal_stacked(x, self.data)[0], \
                                       x0=[self.proposal_samples[-j,:] for j in range(self.nwalkers)], \
                                       main_chain=self.proposal_chain_length)
                 ps_batch = self.proposal_samples[-safety * n_batch:,:]
@@ -498,9 +499,9 @@ class Delfi():
                 # Generate posterior samples
                 if save_intermediate_posteriors:
                     print('Sampling approximate posterior...')
-                    self.posterior_samples = self.emcee_sample(log_likelihood=self.log_posterior_stacked, \
-                                      x0=[self.posterior_samples[j] for j in range(self.nwalkers)], \
-                                      main_chain=self.posterior_chain_length)
+                    self.posterior_samples = self.emcee_sample(log_likelihood = lambda x: self.log_posterior_stacked(x, self.data)[0],
+                                                           x0=[self.posterior_samples[-i,:] for i in range(self.nwalkers)], \
+                                                           main_chain=self.posterior_chain_length)
                 
                     # Save posterior samples to file
                     f = open('{}posterior_samples_{:d}.dat'.format(self.results_dir, i+1), 'w')
@@ -618,9 +619,9 @@ class Delfi():
             # Generate posterior samples
             if plot==True:
                 print('Sampling approximate posterior...')
-                self.posterior_samples = self.emcee_sample(log_likelihood=self.log_posterior_stacked, \
-                                      x0=[self.posterior_samples[j] for j in range(self.nwalkers)], \
-                                      main_chain=self.posterior_chain_length)
+                self.posterior_samples = self.emcee_sample(log_likelihood = lambda x: self.log_posterior_stacked(x, self.data)[0],
+                                                           x0=[self.posterior_samples[-i,:] for i in range(self.nwalkers)], \
+                                                           main_chain=self.posterior_chain_length)
                 print('Done.')
 
                 # Plot the posterior
