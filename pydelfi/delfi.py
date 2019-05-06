@@ -123,8 +123,8 @@ class Delfi():
         else:
             self.posterior_samples = np.array([self.prior.draw() for i in range(self.nwalkers*self.posterior_chain_length)])
             self.proposal_samples = np.array([self.prior.draw() for i in range(self.nwalkers*self.proposal_chain_length)])
-        self.posterior_weights = np.ones(len(self.nwalkers*self.posterior_chain_length))
-        self.proposal_weights = np.ones(len(self.nwalkers*self.proposal_chain_length))
+        self.posterior_weights = np.ones(len(self.posterior_samples))
+        self.proposal_weights = np.ones(len(self.proposal_samples))
     
         # Parameter names and ranges for plotting with GetDist
         self.names = param_names
