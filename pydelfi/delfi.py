@@ -220,7 +220,7 @@ class Delfi():
         for n in range(self.n_ndes):
             L += self.stacking_weights[n]*np.exp(self.nde[n].eval((np.atleast_2d((theta-self.p_mean)/self.p_std), np.atleast_2d((data-self.x_mean)/self.x_std)), self.sess))
         lnL = np.log(L)
-        lnL[np.isnan(lnL),:] = -1e300
+        lnL[np.isnan(lnL)[:,0],:] = -1e300
         return lnL
 
     # Log posterior (stacked)
