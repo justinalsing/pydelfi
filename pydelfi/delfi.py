@@ -572,7 +572,7 @@ class Delfi():
         self.y_train = self.xs.astype(np.float32)
         self.n_sims += len(ps_batch)
     
-    def fisher_pretraining(self, n_batch=5000, plot=True, batch_size=100, validation_split=0.1, epochs=300, patience=20):
+    def fisher_pretraining(self, n_batch=5000, plot=True, batch_size=100, validation_split=0.1, epochs=1000, patience=20):
 
         # Train on master only
         if self.rank == 0:
