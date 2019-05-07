@@ -353,34 +353,6 @@ class Delfi():
     
         return sampler.flatchain
 
-    # Population monte carlo sampler
-    def pmc(self, log_likelihood, n_populations, n_particles, S, weights):
-    
-        # Initialize
-        S0 = S # population
-        weights = weights # weights
-        C = np.cov(S0, aweights=weights, rowvar = 0)
-        L = np.linalg.cholesky(C)
-        
-        # Loop over populations
-        for p in range(n_populations):
-    
-            # Samples
-            S1 = S0[np.random.choice(len(S), len(S), p=weights)] + np.array([np.dot(L, np.random.normal(self.npar)) for i in range(len(S))])
-
-            # Compute weights
-            weights = np.array([log_likelihood(S1[i,:])/sum(weights*multivariate_normal.pdf(S1, mean=S0[i,:], cov=C)) for i in range(len(S0))])
-            weights = weights/sum(weights)
-            
-            # Update covariance matrix
-            C = np.cov(S1, aweights=weights, rowvar = 0)
-            L = np.linalg.cholesky(C)
-
-            # Update population
-            S0 = S1
-            
-        return S0, weights
-
     def sequential_training(self, simulator, compressor, n_initial, n_batch, n_populations, proposal = None, \
                             simulator_args = None, compressor_args = None, safety = 5, plot = True, batch_size = 100, \
                             validation_split = 0.1, epochs = 300, patience = 20, seed_generator = None, \
