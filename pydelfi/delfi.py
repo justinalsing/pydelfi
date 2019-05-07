@@ -234,14 +234,9 @@ class Delfi():
         return self.log_likelihood_individual(i, theta, data) + self.prior.logpdf(np.atleast_2d(theta))
     
     # Log posterior
-    def log_geometric_mean_proposal_stacked(self, x):
+    def log_geometric_mean_proposal_stacked(self, x, data):
         
-        return 0.5 * (self.log_likelihood_stacked(x) + 2 * self.prior.logpdf(np.atleast_2d(x)) )
-
-    # Log posterior
-    def log_geometric_mean_proposal_individual(self, i, x):
-        
-        return 0.5 * (self.log_likelihood_individual(i, x) + 2 * self.prior.logpdf(np.atleast_2d(theta)) )
+        return 0.5 * (self.log_likelihood_stacked(x, data) + 2 * self.prior.logpdf(np.atleast_2d(x)) )
 
     # Bayesian optimization acquisition function
     def acquisition(self, theta):
