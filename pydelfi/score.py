@@ -175,7 +175,11 @@ class Gaussian():
 
     # Fisher score maximum likelihood estimator
     def scoreMLE(self, d):
-    
+        
+        if self.F is None:
+            print("Fisher matrix not computed yet: please make sure the neccesary bits (mean, covariance, derivatives) are provided and then call compute_fisher()")
+            return None
+        
         # Compute the score
         dLdt = np.zeros(self.npar)
     
