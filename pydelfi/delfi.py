@@ -345,11 +345,11 @@ class Delfi():
         sampler = emcee.EnsembleSampler(self.nwalkers, self.npar, log_likelihood)
     
         # Burn-in chain
-        pos, prob, state = sampler.run_mcmc(x0, burn_in_chain)
+        state = sampler.run_mcmc(x0, burn_in_chain)
         sampler.reset()
     
         # Main chain
-        sampler.run_mcmc(pos, main_chain)
+        sampler.run_mcmc(state.coords, main_chain)
     
         return sampler.flatchain
 
