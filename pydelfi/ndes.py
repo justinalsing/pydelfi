@@ -75,3 +75,12 @@ class MixtureDensityNetwork(tf.keras.Model):
         """
         
         return self.call(parameters).prob(data)
+
+    def sample(self, parameters, n):
+        """
+        sample, returns samples {d} from P(d | \theta) for some input values of \theta
+        :param parameters: (conditional) input parameters to draw samples at
+        :param n: number of samples to draw (for each parameter set input)
+        """
+        
+        return self.call(parameters).sample(n)
