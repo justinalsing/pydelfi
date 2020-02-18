@@ -98,7 +98,7 @@ class ConditionalTrainer():
                     # Compute the loss for this batch.
                     log_probs = self.model.log_prob(y_batch_train, x_batch_train)
                     if mode == 'samples':
-                        train_loss = -tf.reduce_sum(log_probs)
+                        train_loss = -tf.reduce_mean(log_probs)
                     elif mode == 'regression':
                         train_loss = tf.keras.losses.MSE(pdf_batch_train, log_probs)
 
@@ -106,16 +106,22 @@ class ConditionalTrainer():
                 # pass to optimizer.
                 grads = tape.gradient(train_loss, self.model.trainable_variables)
                 self.optimizer.apply_gradients(zip(grads, self.model.trainable_variables))
-
-            # Compute the validation loss, and store it alongside the training loss.
+        
+            # validation loss
             if mode == 'samples':
                 for x_batch_val, y_batch_val in val_dataset:
-                    val_loss = -tf.reduce_sum(self.model.log_prob(y_batch_val, x_batch_val))
+                    val_loss = -tf.reduce_mean(self.model.log_prob(y_batch_val, x_batch_val))
+                    val_losses.append(val_loss.numpy())
             elif mode == 'regression':
                 for x_batch_val, y_batch_val, pdf_batch_val in val_dataset:
                     val_loss = tf.keras.losses.MSE(pdf_batch_val, self.model.log_prob(y_batch_val, x_batch_val))
-            train_losses.append(train_loss.numpy())
-            val_losses.append(val_loss.numpy())
+                    val_losses.append(val_loss.numpy()[0])
+
+            # append training loss
+            if mode == 'samples':
+                train_losses.append(train_loss.numpy())
+            elif mode == 'regression':
+                train_losses.append(train_loss.numpy()[0])
     
             # Use validation loss to stop training early
             if val_losses[-1] < bst_loss:
@@ -131,8 +137,8 @@ class ConditionalTrainer():
 
             # Update progress if desired.
             if progress_bar:
-                pbar.update()
+                pbar.update(1)
                 pbar.set_postfix(ordered_dict={"train loss":train_losses[-1], \
-                                               "val loss":val_losses[-1]}, refresh=True)
+                                 "val loss":val_losses[-1]}, refresh=True)
 
         return np.array(val_losses), np.array(train_losses)

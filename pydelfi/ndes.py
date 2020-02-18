@@ -166,7 +166,7 @@ class ConditionalGaussianMADE(tf.keras.Model):
         # return shift and log_scale
         return mu, logp
     
-    def u(self, parameters, data):
+    def u(self, data, parameters):
         
         # shift and log_scale
         mu, logp = self.call(data, parameters)
@@ -266,8 +266,7 @@ class ConditionalGaussianMADE(tf.keras.Model):
         return Ms, Mmp
 
 
-
-class ConditionalMaskedAutoregressiveFlow:
+class ConditionalMaskedAutoregressiveFlow(tf.keras.Model):
     """
     Conditional Masked Autoregressive Flow.
     """
@@ -305,7 +304,7 @@ class ConditionalMaskedAutoregressiveFlow:
             output_order = output_order if output_order is 'random' else self.mades[-1].output_order[::-1]
 
         self.output_order = self.mades[0].output_order
-
+            
     def call(self, data, parameters):
         
         u = [data]
@@ -321,10 +320,11 @@ class ConditionalMaskedAutoregressiveFlow:
     def log_prob(self, data, parameters):
         
         u = [data]
-        logdet_dudy = tf.zeros(1)
+        logdet_dudy = tf.zeros(data.shape[0])
         
         # loop through the MADEs
         for i in range(self.n_mades):
+            
             # update state
             u.append(self.mades[i].u(u[-1], parameters))
             
@@ -333,12 +333,12 @@ class ConditionalMaskedAutoregressiveFlow:
             logdet_dudy += 0.5 * tf.reduce_sum(logp, axis=1, keepdims=True)
         
         # log density
-        return tf.add(-0.5 * self.n_data * np.log(2 * np.pi) - 0.5 * tf.reduce_sum(u[-1] ** 2, axis=1, keepdims=True), logdet_dudy)
+        return -0.5 * self.n_data * np.log(2 * np.pi) - 0.5 * tf.reduce_sum(u[-1] ** 2, axis=1, keepdims=True) + logdet_dudy
 
     def prob(self, data, parameters):
         
         u = [data]
-        logdet_dudy = tf.zeros(1)
+        logdet_dudy = tf.zeros(data.shape[0])
         
         # loop through the MADEs
         for i in range(self.n_mades):
@@ -350,4 +350,4 @@ class ConditionalMaskedAutoregressiveFlow:
             logdet_dudy += 0.5 * tf.reduce_sum(logp, axis=1, keepdims=True)
     
         # likelihood
-        return tf.exp(tf.add(-0.5 * self.n_data * np.log(2 * np.pi) - 0.5 * tf.reduce_sum(u[-1] ** 2, axis=1, keepdims=True), logdet_dudy))
+        return tf.exp(-0.5 * self.n_data * np.log(2 * np.pi) - 0.5 * tf.reduce_sum(u[-1] ** 2, axis=1, keepdims=True) + logdet_dudy)

@@ -1,17 +1,19 @@
 import tensorflow as tf
 import getdist
 from getdist import plots, MCSamples
-import pydelfi.ndes
-import pydelfi.train
 import emcee
 import matplotlib.pyplot as plt
 import matplotlib as mpl
-import pydelfi.priors as priors
 import numpy as np
 from tqdm.auto import tqdm
 import scipy.optimize as optimization
 from scipy.stats import multivariate_normal
 import pickle
+
+# pydelfi imports
+import priors as priors
+import ndes
+import train
 
 class Delfi():
 
@@ -61,12 +63,8 @@ class Delfi():
         # Initialize the NDEs, trainers, and stacking weights (for stacked density estimators)
         self.n_ndes = len(nde)
         self.nde = nde
-        self.trainer = [pydelfi.train.ConditionalTrainer(nde[i]) for i in range(self.n_ndes)]
+        self.trainer = [train.ConditionalTrainer(nde[i]) for i in range(self.n_ndes)]
         self.stacking_weights = np.zeros(self.n_ndes)
-
-        # Tensorflow session for the NDE training
-        self.sess = tf.Session(config = tf.ConfigProto())
-        self.sess.run(tf.global_variables_initializer())
         
         # Parameter limits
         if param_limits is not None:
@@ -108,8 +106,8 @@ class Delfi():
         # Training data [initialize empty]
         self.ps = np.array([]).reshape(0,self.npar)
         self.xs = np.array([]).reshape(0,self.D)
-        self.x_train = tf.placeholder(tf.float32, shape = (None, self.npar))
-        self.y_train = tf.placeholder(tf.float32, shape = (None, self.D))
+        self.x_train = []
+        self.y_train = []
         self.n_sims = 0
         
         # MCMC chain parameters for EMCEE
@@ -166,9 +164,7 @@ class Delfi():
         # Restore the graph and dynamic object attributes if restore = True
         if restore == True:
             
-            # Restore the graph
-            saver = tf.train.Saver()
-            saver.restore(self.sess, self.graph_restore_filename)
+            # Restore the models
 
             # Restore the dynamic object attributes
             self.stacking_weights, self.posterior_samples, self.proposal_samples, self.training_loss, self.validation_loss, self.stacked_sequential_training_loss, self.stacked_sequential_validation_loss, self.sequential_nsims, self.ps, self.xs, self.x_mean, self.x_std, self.p_mean, self.p_std = pickle.load(open(self.restore_filename, 'rb'))
@@ -208,7 +204,7 @@ class Delfi():
     # NDE log likelihood (individual NDE)
     def log_likelihood_individual(self, i, theta, data):
     
-        lnL = self.nde[i].eval((np.atleast_2d((theta-self.p_mean)/self.p_std), np.atleast_2d((data-self.x_mean)/self.x_std)), self.sess)
+        lnL = self.nde[i].log_prob((np.atleast_2d((theta-self.p_mean)/self.p_std), np.atleast_2d((data-self.x_mean)/self.x_std)))
     
         return lnL
 
@@ -218,7 +214,7 @@ class Delfi():
         # Stack the likelihoods
         L = 0
         for n in range(self.n_ndes):
-            L += self.stacking_weights[n]*np.exp(self.nde[n].eval((np.atleast_2d((theta-self.p_mean)/self.p_std), np.atleast_2d((data-self.x_mean)/self.x_std)), self.sess))
+            L += self.stacking_weights[n]*np.exp(self.nde[n].log_prob((np.atleast_2d((theta-self.p_mean)/self.p_std), np.atleast_2d((data-self.x_mean)/self.x_std))))
         lnL = np.log(L)
         lnL[np.isnan(lnL)[:,0],:] = -1e300
         return lnL
@@ -498,7 +494,7 @@ class Delfi():
         # Train the networks
         for n in range(self.n_ndes):
             # Train the NDE
-            val_loss, train_loss = self.trainer[n].train(self.sess, training_data, validation_split = validation_split, epochs=epochs, batch_size=batch_size, progress_bar=self.progress_bar, patience=patience, saver_name=self.graph_restore_filename, mode=mode)
+            val_loss, train_loss = self.trainer[n].train(training_data, f_val = validation_split, epochs=epochs, n_batch=batch_size, progress_bar=self.progress_bar, patience=patience, file_name=self.graph_restore_filename, mode=mode)
         
             # Save the training and validation losses
             self.training_loss[n] = np.concatenate([self.training_loss[n], train_loss])
