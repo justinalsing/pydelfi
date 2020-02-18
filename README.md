@@ -7,7 +7,8 @@
 **Installation:**
 
 The code is in python3 and has the following dependencies:<br>
-[tensorflow](https://www.tensorflow.org) (<=1.15) <br> 
+[tensorflow](https://www.tensorflow.org) (>=2.1) <br>
+[tensorflow probability](https://www.tensorflow.org/probability) <br>
 [getdist](http://getdist.readthedocs.io/en/latest/)<br>
 [emcee](http://dfm.io/emcee/current/)<br>
 [tqdm](https://github.com/tqdm/tqdm)<br>
