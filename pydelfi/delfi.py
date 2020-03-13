@@ -412,10 +412,11 @@ class Delfi():
                 print('Sampling approximate posterior...')
 
                 # initial position for emcee sampler
+                x0 = self.posterior_samples[np.argpartition(self.log_posterior_values, -self.nwalkers)[-self.nwalkers:], :]
 
                 # sample
                 self.posterior_samples, self.posterior_weights, self.log_posterior_values = self.emcee_sample(log_likelihood = lambda x: self.log_posterior_stacked(x, self.data).numpy(),
-                                                           x0=[self.posterior_samples[-i,:] for i in range(self.nwalkers)], \
+                                                           x0=[x0[i] for i in range(self.nwalkers)], \
                                                            main_chain=self.posterior_chain_length)
             
                 # Save posterior samples to file
@@ -447,9 +448,13 @@ class Delfi():
         
                 # Sample the current posterior approximation
                 print('Sampling proposal density...')
+
+                # initial position for emcee sampler
+                x0 = self.proposal_samples[np.argpartition(self.log_proposal_values, -self.nwalkers)[-self.nwalkers:], :]
+
                 self.proposal_samples, self.proposal_weights, self.log_proposal_values = \
                     self.emcee_sample(log_likelihood = lambda x: self.log_geometric_mean_proposal_stacked(x, self.data).numpy(), \
-                                      x0=[self.proposal_samples[-j,:] for j in range(self.nwalkers)], \
+                                      x0=[x0[j] for j in range(self.nwalkers)], \
                                       main_chain=self.proposal_chain_length)
                 ps_batch = self.proposal_samples[-safety * n_batch:,:]
                 print('Done.')
@@ -479,8 +484,13 @@ class Delfi():
                 # Generate posterior samples
                 if save_intermediate_posteriors:
                     print('Sampling approximate posterior...')
+
+                    # initial position for emcee sampler
+                    x0 = self.posterior_samples[np.argpartition(self.log_posterior_values, -self.nwalkers)[-self.nwalkers:], :]
+
+
                     self.posterior_samples, self.posterior_weights, self.log_posterior_values = self.emcee_sample(log_likelihood = lambda x: self.log_posterior_stacked(x, self.data).numpy(),
-                                                           x0=[self.posterior_samples[-i,:] for i in range(self.nwalkers)], \
+                                                           x0=[x0[i] for i in range(self.nwalkers)], \
                                                            main_chain=self.posterior_chain_length)
                 
                     # Save posterior samples to file
@@ -518,7 +528,7 @@ class Delfi():
             self.validation_loss[n] = np.concatenate([self.validation_loss[n], val_loss])
 
         # Update weights for stacked density estimator
-        self.stacking_weights = np.exp(-np.array([self.training_loss[i][-1] for i in range(self.n_ndes)]))
+        self.stacking_weights = np.exp(-np.array([self.training_loss[i][-1] - max(self.training_loss[:][-1]) for i in range(self.n_ndes)]))
         self.stacking_weights = self.stacking_weights/sum(self.stacking_weights)
 
         # if save == True, save everything
@@ -605,13 +615,17 @@ class Delfi():
             # Generate posterior samples
             if plot==True:
                 print('Sampling approximate posterior...')
+
+                # initial position for emcee sampler
+                x0 = self.posterior_samples[np.argpartition(self.log_posterior_values, -self.nwalkers)[-self.nwalkers:], :]
+
                 self.posterior_samples, self.posterior_weights, self.log_posterior_values = self.emcee_sample(log_likelihood = lambda x: self.log_posterior_stacked(x, self.data).numpy(),
-                                                           x0=[self.posterior_samples[-i,:] for i in range(self.nwalkers)], \
+                                                           x0=[x0[i] for i in range(self.nwalkers)], \
                                                            main_chain=self.posterior_chain_length)
                 print('Done.')
 
                 # Plot the posterior
-                self.triangle_plot([self.posterior_samples], weights = [self.posterior_weights], \
+                self.triangle_plot([self.posterior_samples], weights=[self.posterior_weights], \
                                     savefig=True, \
                                     filename='{}fisher_train_post.pdf'.format(self.results_dir))
 
