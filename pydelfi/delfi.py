@@ -412,7 +412,7 @@ class Delfi():
                 print('Sampling approximate posterior...')
 
                 # initial position for emcee sampler
-                x0 = self.posterior_samples[np.argpartition(self.log_posterior_values, -2*len(self.log_posterior_values)//3)[-self.nwalkers:], :]
+                x0 = self.posterior_samples[np.argpartition(self.log_posterior_values, -9*len(self.log_posterior_values)//10)[-self.nwalkers:], :]
 
                 # sample
                 self.posterior_samples, self.posterior_weights, self.log_posterior_values = self.emcee_sample(log_likelihood = lambda x: self.log_posterior_stacked(x, self.data).numpy(),
@@ -450,7 +450,7 @@ class Delfi():
                 print('Sampling proposal density...')
 
                 # initial position for emcee sampler
-                x0 = self.proposal_samples[np.argpartition(self.log_proposal_values, -3*len(self.proposal_samples)//4)[-self.nwalkers:], :]
+                x0 = self.proposal_samples[np.argpartition(self.log_proposal_values, -9*len(self.proposal_samples)//10)[-self.nwalkers:], :]
 
                 self.proposal_samples, self.proposal_weights, self.log_proposal_values = \
                     self.emcee_sample(log_likelihood = lambda x: self.log_geometric_mean_proposal_stacked(x, self.data).numpy(), \
@@ -486,7 +486,7 @@ class Delfi():
                     print('Sampling approximate posterior...')
 
                     # initial position for emcee sampler
-                    x0 = self.posterior_samples[np.argpartition(self.log_posterior_values, -2*len(self.log_posterior_values)//3)[-self.nwalkers:], :]
+                    x0 = self.posterior_samples[np.argpartition(self.log_posterior_values, -9*len(self.log_posterior_values)//10)[-self.nwalkers:], :]
 
 
                     self.posterior_samples, self.posterior_weights, self.log_posterior_values = self.emcee_sample(log_likelihood = lambda x: self.log_posterior_stacked(x, self.data).numpy(),
@@ -617,7 +617,7 @@ class Delfi():
                 print('Sampling approximate posterior...')
 
                 # initial position for emcee sampler
-                x0 = self.posterior_samples[np.argpartition(self.log_posterior_values, -2*len(self.log_posterior_values)//3)[-self.nwalkers:], :]
+                x0 = self.posterior_samples[np.argpartition(self.log_posterior_values, -9*len(self.log_posterior_values)//10)[-self.nwalkers:], :]
 
                 self.posterior_samples, self.posterior_weights, self.log_posterior_values = self.emcee_sample(log_likelihood = lambda x: self.log_posterior_stacked(x, self.data).numpy(),
                                                            x0=[x0[i] for i in range(self.nwalkers)], \
