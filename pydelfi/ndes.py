@@ -46,6 +46,7 @@ class MixtureDensityNetwork(tf.keras.Model):
         # (output) mixture density layer
         self.network_layers.append(tfpl.MixtureSameFamily(self.n_components, tfpl.MultivariateNormalTriL(self.n_data)))
     
+    @tf.function
     def call(self, parameters):
         """
         Call. Returns callable tfp gaussian mixture model, for the conditional parameters given as inputs.
@@ -59,6 +60,7 @@ class MixtureDensityNetwork(tf.keras.Model):
         
         return outputs[-1]
     
+    @tf.function
     def log_prob(self, data, parameters):
         """
         log probability, returns log density ln P(d | \theta)
@@ -67,7 +69,8 @@ class MixtureDensityNetwork(tf.keras.Model):
         """
         
         return self.call(parameters).log_prob(data)
-    
+
+    @tf.function
     def prob(self, data, parameters):
         """
         probability, returns density P(d | \theta)
@@ -77,6 +80,7 @@ class MixtureDensityNetwork(tf.keras.Model):
         
         return self.call(parameters).prob(data)
 
+    @tf.function
     def sample(self, parameters, n):
         """
         sample, returns samples {d} from P(d | \theta) for some input values of \theta
@@ -146,6 +150,7 @@ class ConditionalGaussianMADE(tf.keras.Model):
         # output order
         self.output_order = degrees[0]
     
+    @tf.function
     def call(self, data, parameters):
         
         # pass through layers of the network:
@@ -166,6 +171,7 @@ class ConditionalGaussianMADE(tf.keras.Model):
         # return shift and log_scale
         return mu, logp
     
+    @tf.function
     def u(self, data, parameters):
         
         # shift and log_scale
@@ -176,6 +182,7 @@ class ConditionalGaussianMADE(tf.keras.Model):
         
         return u
     
+    @tf.function
     def log_prob(self, data, parameters):
         
         # shift and log_scale
@@ -185,8 +192,9 @@ class ConditionalGaussianMADE(tf.keras.Model):
         u = tf.exp(0.5 * logp) * (data - mu)
         
         # log density
-        return tf.multiply(-0.5, self.n_data * np.log(2 * np.pi) + tf.reduce_sum(u**2 - logp, axis=1, keepdims=True))
+        return tf.multiply(-0.5, self.n_data * np.log(2 * np.pi) + tf.reduce_sum(u**2 - logp, axis=1))
     
+    @tf.function
     def prob(self, data, parameters):
         
         # shift and log_scale
@@ -196,7 +204,7 @@ class ConditionalGaussianMADE(tf.keras.Model):
         u = tf.exp(0.5 * logp) * (data - mu)
         
         # log density
-        return tf.exp(tf.multiply(-0.5, self.n_data * np.log(2 * np.pi) + tf.reduce_sum(u**2 - logp, axis=1, keepdims=True)))
+        return tf.exp(tf.multiply(-0.5, self.n_data * np.log(2 * np.pi) + tf.reduce_sum(u**2 - logp, axis=1)))
 
     
     def create_degrees(self, input_order):
@@ -305,6 +313,7 @@ class ConditionalMaskedAutoregressiveFlow(tf.keras.Model):
 
         self.output_order = self.mades[0].output_order
             
+    @tf.function
     def call(self, data, parameters):
         
         u = [data]
@@ -317,6 +326,7 @@ class ConditionalMaskedAutoregressiveFlow(tf.keras.Model):
         # transformed vector
         return u[-1]
     
+    @tf.function
     def log_prob(self, data, parameters):
         
         u = [data]
@@ -324,17 +334,19 @@ class ConditionalMaskedAutoregressiveFlow(tf.keras.Model):
         
         # loop through the MADEs
         for i in range(self.n_mades):
+
+            # update jacobian
+            _, logp = self.mades[i](u[-1], parameters)
             
             # update state
             u.append(self.mades[i].u(u[-1], parameters))
             
-            # update jacobian
-            _, logp = self.mades[i](u[-1], parameters)
-            logdet_dudy += 0.5 * tf.reduce_sum(logp, axis=1, keepdims=True)
+            logdet_dudy = logdet_dudy + 0.5 * tf.reduce_sum(logp, axis=1)
         
         # log density
-        return -0.5 * self.n_data * np.log(2 * np.pi) - 0.5 * tf.reduce_sum(u[-1] ** 2, axis=1, keepdims=True) + logdet_dudy
+        return -0.5 * self.n_data * np.log(2 * np.pi) - 0.5 * tf.reduce_sum(u[-1] ** 2, axis=1) + logdet_dudy
 
+    @tf.function
     def prob(self, data, parameters):
         
         u = [data]
@@ -342,12 +354,13 @@ class ConditionalMaskedAutoregressiveFlow(tf.keras.Model):
         
         # loop through the MADEs
         for i in range(self.n_mades):
-            # update state
-            u.append(self.mades[i].u(u[-1], parameters))
-            
+
             # update jacobian
             _, logp = self.mades[i](u[-1], parameters)
-            logdet_dudy += 0.5 * tf.reduce_sum(logp, axis=1, keepdims=True)
+            logdet_dudy = logdet_dudy + 0.5 * tf.reduce_sum(logp, axis=1)
+
+            # update state
+            u.append(self.mades[i].u(u[-1], parameters))
     
         # likelihood
-        return tf.exp(-0.5 * self.n_data * np.log(2 * np.pi) - 0.5 * tf.reduce_sum(u[-1] ** 2, axis=1, keepdims=True) + logdet_dudy)
+        return tf.exp(-0.5 * self.n_data * np.log(2 * np.pi) - 0.5 * tf.reduce_sum(u[-1] ** 2, axis=1) + logdet_dudy)

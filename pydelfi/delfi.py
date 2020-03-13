@@ -9,6 +9,8 @@ from tqdm.auto import tqdm
 import scipy.optimize as optimization
 from scipy.stats import multivariate_normal
 import pickle
+import tensorflow_probability as tfp
+tfd = tfp.distributions
 
 # pydelfi imports
 import priors as priors
@@ -19,7 +21,7 @@ class Delfi():
 
     def __init__(self, data, prior, nde, \
                  Finv = None, theta_fiducial = None, param_limits = None, param_names = None, nwalkers = 100, \
-                 posterior_chain_length = 1000, proposal_chain_length = 100, \
+                 posterior_chain_length = 100, proposal_chain_length = 100, \
                  rank = 0, n_procs = 1, comm = None, red_op = None, \
                  show_plot = True, results_dir = "", progress_bar = True, input_normalization = None,
                  graph_restore_filename = "graph_checkpoint", restore_filename = "restore.pkl", restore = False, save = True):
@@ -81,7 +83,7 @@ class Delfi():
             self.Finv = Finv
             self.fisher_errors = np.sqrt(np.diag(self.Finv))
             self.theta_fiducial = theta_fiducial
-            self.asymptotic_posterior = priors.TruncatedGaussian(self.theta_fiducial, self.Finv, self.lower, self.upper)
+            self.asymptotic_posterior = tfd.MultivariateNormalTriL(loc=self.theta_fiducial, scale_tril=tf.linalg.cholesky(self.Finv))
         else:
             self.Finv = None
             self.fisher_errors = None
@@ -117,18 +119,18 @@ class Delfi():
         
         # Initialize MCMC chains for posterior and proposal
         if self.asymptotic_posterior is not None:
-            self.posterior_samples = np.array([self.asymptotic_posterior.draw() for i in range(self.nwalkers*self.posterior_chain_length)])
-            self.proposal_samples = np.array([self.asymptotic_posterior.draw() for i in range(self.nwalkers*self.proposal_chain_length)])
+            self.posterior_samples = np.array([self.asymptotic_posterior.sample() for i in range(self.nwalkers*self.posterior_chain_length)])
+            self.proposal_samples = np.array([self.asymptotic_posterior.sample() for i in range(self.nwalkers*self.proposal_chain_length)])
         else:
-            self.posterior_samples = np.array([self.prior.draw() for i in range(self.nwalkers*self.posterior_chain_length)])
-            self.proposal_samples = np.array([self.prior.draw() for i in range(self.nwalkers*self.proposal_chain_length)])
+            self.posterior_samples = np.array([self.prior.sample() for i in range(self.nwalkers*self.posterior_chain_length)])
+            self.proposal_samples = np.array([self.prior.sample() for i in range(self.nwalkers*self.proposal_chain_length)])
         self.posterior_weights = np.ones(len(self.posterior_samples))*1.0/len(self.posterior_samples)
         self.proposal_weights = np.ones(len(self.proposal_samples))*1.0/len(self.proposal_samples)
     
         # Parameter names and ranges for plotting with GetDist
         self.names = param_names
         self.labels = param_names
-        self.ranges = dict(zip(param_names, [ [self.lower[i], self.upper[i]] for i in range(self.npar) ]))
+        self.ranges = dict(zip(param_names, [ (self.lower[i], self.upper[i]) for i in range(self.npar) ]))
         self.show_plot = show_plot
         
         # Results directory
@@ -155,7 +157,6 @@ class Delfi():
         self.progress_bar = progress_bar
         
         # Filenames for saving/restoring graph and attributes
-        self.graph_restore_filename = results_dir + graph_restore_filename
         self.restore_filename = results_dir + restore_filename
         
         # Save attributes of the ojbect as you go?
@@ -163,11 +164,13 @@ class Delfi():
 
         # Restore the graph and dynamic object attributes if restore = True
         if restore == True:
-            
-            # Restore the models
 
             # Restore the dynamic object attributes
-            self.stacking_weights, self.posterior_samples, self.proposal_samples, self.training_loss, self.validation_loss, self.stacked_sequential_training_loss, self.stacked_sequential_validation_loss, self.sequential_nsims, self.ps, self.xs, self.x_mean, self.x_std, self.p_mean, self.p_std = pickle.load(open(self.restore_filename, 'rb'))
+            self.stacking_weights, self.posterior_samples, self.proposal_samples, self.training_loss, self.validation_loss, self.stacked_sequential_training_loss, self.stacked_sequential_validation_loss, self.sequential_nsims, self.ps, self.xs, self.x_mean, self.x_std, self.p_mean, self.p_std = pickle.load(open(self.restore_filename + ".pkl", 'rb'))
+            
+            # Restore the NDE models
+            for i in range(self.n_ndes):
+                self.nde[i].load_weights(self.restore_filename + "_NDE{}.tf".format(i))
 
     # Save object attributes
     def saver(self):
@@ -175,6 +178,9 @@ class Delfi():
         f = open(self.restore_filename, 'wb')
         pickle.dump([self.stacking_weights, self.posterior_samples, self.proposal_samples, self.training_loss, self.validation_loss, self.stacked_sequential_training_loss, self.stacked_sequential_validation_loss, self.sequential_nsims, self.ps, self.xs, self.x_mean, self.x_std, self.p_mean, self.p_std], f)
         f.close()
+
+        for i in range(self.n_ndes):
+            self.nde[i].save_weights(self.restore_filename + "_NDE{}.tf".format(i))
     
     # Divide list of jobs between MPI processes
     def allocate_jobs(self, n_jobs):
@@ -204,7 +210,7 @@ class Delfi():
     # NDE log likelihood (individual NDE)
     def log_likelihood_individual(self, i, theta, data):
     
-        lnL = self.nde[i].log_prob((np.atleast_2d((theta-self.p_mean)/self.p_std), np.atleast_2d((data-self.x_mean)/self.x_std)))
+        lnL = self.nde[i].log_prob(np.atleast_2d((data-self.x_mean)/self.x_std).astype(np.float32), np.atleast_2d((theta-self.p_mean)/self.p_std).astype(np.float32))
     
         return lnL
 
@@ -214,25 +220,25 @@ class Delfi():
         # Stack the likelihoods
         L = 0
         for n in range(self.n_ndes):
-            L += self.stacking_weights[n]*np.exp(self.nde[n].log_prob((np.atleast_2d((theta-self.p_mean)/self.p_std), np.atleast_2d((data-self.x_mean)/self.x_std))))
+            L += self.stacking_weights[n]*np.exp(self.nde[n].log_prob(np.atleast_2d((data-self.x_mean)/self.x_std).astype(np.float32), np.atleast_2d((theta-self.p_mean)/self.p_std).astype(np.float32)))
         lnL = np.log(L)
-        lnL[np.isnan(lnL)[:,0],:] = -1e300
+        lnL[np.isnan(lnL)] = -1e300
         return lnL
 
     # Log posterior (stacked)
     def log_posterior_stacked(self, theta, data):
         
-        return self.log_likelihood_stacked(theta, data) + self.prior.logpdf(np.atleast_2d(theta))
+        return self.log_likelihood_stacked(theta, data) + tf.cast(self.prior.log_prob(np.atleast_2d(theta).astype(np.float32)), tf.float32)
 
     # Log posterior (individual)
     def log_posterior_individual(self, i, theta, data):
         
-        return self.log_likelihood_individual(i, theta, data) + self.prior.logpdf(np.atleast_2d(theta))
+        return self.log_likelihood_individual(i, theta, data) + tf.cast(self.prior.log_prob(np.atleast_2d(theta).astype(np.float32)), tf.float32)
     
     # Log posterior
-    def log_geometric_mean_proposal_stacked(self, x, data):
+    def log_geometric_mean_proposal_stacked(self, theta, data):
         
-        return 0.5 * (self.log_likelihood_stacked(x, data) + 2 * self.prior.logpdf(np.atleast_2d(x)) )
+        return 0.5 * (self.log_likelihood_stacked(theta, data) + 2 * tf.cast(self.prior.log_prob(np.atleast_2d(theta).astype(np.float32)), tf.float32) )
 
     # Bayesian optimization acquisition function
     def acquisition(self, theta):
@@ -331,7 +337,7 @@ class Delfi():
     
         # Set the log likelihood (default to the posterior if none given)
         if log_likelihood is None:
-            log_likelihood = lambda x: self.log_posterior_stacked(x, self.data)[0]
+            log_likelihood = lambda x: self.log_posterior_stacked(x, self.data).numpy()
         
         # Set up default x0
         if x0 is None:
@@ -345,9 +351,9 @@ class Delfi():
         sampler.reset()
     
         # Main chain
-        sampler.run_mcmc(state.coords, main_chain)
+        sampler.run_mcmc(state, main_chain)
     
-        return sampler.flatchain
+        return sampler.get_chain(flat=True)
 
     def sequential_training(self, simulator, compressor, n_initial, n_batch, n_populations, proposal = None, \
                             simulator_args = None, compressor_args = None, safety = 5, plot = True, batch_size = 100, \
@@ -396,7 +402,7 @@ class Delfi():
             # Generate posterior samples
             if save_intermediate_posteriors:
                 print('Sampling approximate posterior...')
-                self.posterior_samples = self.emcee_sample(log_likelihood = lambda x: self.log_posterior_stacked(x, self.data)[0],
+                self.posterior_samples = self.emcee_sample(log_likelihood = lambda x: self.log_posterior_stacked(x, self.data).numpy(),
                                                            x0=[self.posterior_samples[-i,:] for i in range(self.nwalkers)], \
                                                            main_chain=self.posterior_chain_length)
             
@@ -431,7 +437,7 @@ class Delfi():
                 # Sample the current posterior approximation
                 print('Sampling proposal density...')
                 self.proposal_samples = \
-                    self.emcee_sample(log_likelihood = lambda x: self.log_geometric_mean_proposal_stacked(x, self.data)[0], \
+                    self.emcee_sample(log_likelihood = lambda x: self.log_geometric_mean_proposal_stacked(x, self.data).numpy(), \
                                       x0=[self.proposal_samples[-j,:] for j in range(self.nwalkers)], \
                                       main_chain=self.proposal_chain_length)
                 ps_batch = self.proposal_samples[-safety * n_batch:,:]
@@ -462,7 +468,7 @@ class Delfi():
                 # Generate posterior samples
                 if save_intermediate_posteriors:
                     print('Sampling approximate posterior...')
-                    self.posterior_samples = self.emcee_sample(log_likelihood = lambda x: self.log_posterior_stacked(x, self.data)[0],
+                    self.posterior_samples = self.emcee_sample(log_likelihood = lambda x: self.log_posterior_stacked(x, self.data).numpy(),
                                                            x0=[self.posterior_samples[-i,:] for i in range(self.nwalkers)], \
                                                            main_chain=self.posterior_chain_length)
                 
@@ -494,7 +500,7 @@ class Delfi():
         # Train the networks
         for n in range(self.n_ndes):
             # Train the NDE
-            val_loss, train_loss = self.trainer[n].train(training_data, f_val = validation_split, epochs=epochs, n_batch=batch_size, progress_bar=self.progress_bar, patience=patience, file_name=self.graph_restore_filename, mode=mode)
+            val_loss, train_loss = self.trainer[n].train(training_data, f_val = validation_split, epochs=epochs, n_batch=batch_size, progress_bar=self.progress_bar, patience=patience, file_name=self.restore_filename + "_NDE{}.tf".format(n), mode=mode)
         
             # Save the training and validation losses
             self.training_loss[n] = np.concatenate([self.training_loss[n], train_loss])
@@ -543,7 +549,7 @@ class Delfi():
             # Generate fisher pre-training data
             
             # Broader proposal
-            proposal = priors.TruncatedGaussian(self.theta_fiducial, 9*self.Finv, self.lower, self.upper)
+            proposal = tfd.MultivariateNormalTriL(loc=self.theta_fiducial, scale_tril=tf.linalg.cholesky(9*self.Finv))
 
             # Anticipated covariance of the re-scaled data
             Cdd = np.zeros((self.npar, self.npar))
@@ -558,13 +564,13 @@ class Delfi():
             ps = np.zeros((3*n_batch, self.npar))
             for i in range(0, n_batch):
                 # Draws from prior
-                ps[i,:] = (self.prior.draw() - self.theta_fiducial)/self.fisher_errors
+                ps[i,:] = (self.prior.sample() - self.theta_fiducial)/self.fisher_errors
                 
                 # Draws from asymptotic posterior
-                ps[n_batch + i,:] = (self.asymptotic_posterior.draw() - self.theta_fiducial)/self.fisher_errors
+                ps[n_batch + i,:] = (self.asymptotic_posterior.sample() - self.theta_fiducial)/self.fisher_errors
                 
                 # Drawn from Gaussian with 3x anticipated covariance matrix
-                ps[2*n_batch + i,:] = (proposal.draw() - self.theta_fiducial)/self.fisher_errors
+                ps[2*n_batch + i,:] = (proposal.sample() - self.theta_fiducial)/self.fisher_errors
             
             # Sample data assuming a Gaussian likelihood
             xs = np.array([pss + np.dot(Ldd, np.random.normal(0, 1, self.npar)) for pss in ps])
@@ -588,7 +594,7 @@ class Delfi():
             # Generate posterior samples
             if plot==True:
                 print('Sampling approximate posterior...')
-                self.posterior_samples = self.emcee_sample(log_likelihood = lambda x: self.log_posterior_stacked(x, self.data)[0],
+                self.posterior_samples = self.emcee_sample(log_likelihood = lambda x: self.log_posterior_stacked(x, self.data).numpy(),
                                                            x0=[self.posterior_samples[-i,:] for i in range(self.nwalkers)], \
                                                            main_chain=self.posterior_chain_length)
                 print('Done.')
