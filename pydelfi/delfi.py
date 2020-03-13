@@ -24,7 +24,7 @@ class Delfi():
                  posterior_chain_length = 100, proposal_chain_length = 100, \
                  rank = 0, n_procs = 1, comm = None, red_op = None, \
                  show_plot = True, results_dir = "", progress_bar = True, input_normalization = None,
-                 graph_restore_filename = "graph_checkpoint", restore_filename = "restore.pkl", restore = False, save = True):
+                 restore_filename = "restore", restore = False, save = True):
         
         # Input validation
         for i in range(len(nde)):
@@ -83,7 +83,7 @@ class Delfi():
             self.Finv = Finv
             self.fisher_errors = np.sqrt(np.diag(self.Finv))
             self.theta_fiducial = theta_fiducial
-            self.asymptotic_posterior = tfd.MultivariateNormalTriL(loc=self.theta_fiducial, scale_tril=tf.linalg.cholesky(self.Finv))
+            self.asymptotic_posterior = priors.TruncatedGaussian(self.theta_fiducial, self.Finv, self.lower, self.upper)
         else:
             self.Finv = None
             self.fisher_errors = None
@@ -119,14 +119,16 @@ class Delfi():
         
         # Initialize MCMC chains for posterior and proposal
         if self.asymptotic_posterior is not None:
-            self.posterior_samples = np.array([self.asymptotic_posterior.sample() for i in range(self.nwalkers*self.posterior_chain_length)])
-            self.proposal_samples = np.array([self.asymptotic_posterior.sample() for i in range(self.nwalkers*self.proposal_chain_length)])
+            self.posterior_samples = np.array([self.asymptotic_posterior.draw() for i in range(self.nwalkers*self.posterior_chain_length)])
+            self.proposal_samples = np.array([self.asymptotic_posterior.draw() for i in range(self.nwalkers*self.proposal_chain_length)])
         else:
             self.posterior_samples = np.array([self.prior.sample() for i in range(self.nwalkers*self.posterior_chain_length)])
             self.proposal_samples = np.array([self.prior.sample() for i in range(self.nwalkers*self.proposal_chain_length)])
         self.posterior_weights = np.ones(len(self.posterior_samples))*1.0/len(self.posterior_samples)
         self.proposal_weights = np.ones(len(self.proposal_samples))*1.0/len(self.proposal_samples)
-    
+        self.log_posterior_values = np.ones(len(self.posterior_samples))*1.0/len(self.posterior_samples)
+        self.log_proposal_values = np.ones(len(self.proposal_samples))*1.0/len(self.proposal_samples)
+
         # Parameter names and ranges for plotting with GetDist
         self.names = param_names
         self.labels = param_names
@@ -166,7 +168,7 @@ class Delfi():
         if restore == True:
 
             # Restore the dynamic object attributes
-            self.stacking_weights, self.posterior_samples, self.proposal_samples, self.training_loss, self.validation_loss, self.stacked_sequential_training_loss, self.stacked_sequential_validation_loss, self.sequential_nsims, self.ps, self.xs, self.x_mean, self.x_std, self.p_mean, self.p_std = pickle.load(open(self.restore_filename + ".pkl", 'rb'))
+            self.stacking_weights, self.posterior_samples, self.posterior_weights, self.proposal_samples, self.proposal_weights, self.training_loss, self.validation_loss, self.stacked_sequential_training_loss, self.stacked_sequential_validation_loss, self.sequential_nsims, self.ps, self.xs, self.x_mean, self.x_std, self.p_mean, self.p_std = pickle.load(open(self.restore_filename + ".pkl", 'rb'))
             
             # Restore the NDE models
             for i in range(self.n_ndes):
@@ -176,7 +178,7 @@ class Delfi():
     def saver(self):
     
         f = open(self.restore_filename, 'wb')
-        pickle.dump([self.stacking_weights, self.posterior_samples, self.proposal_samples, self.training_loss, self.validation_loss, self.stacked_sequential_training_loss, self.stacked_sequential_validation_loss, self.sequential_nsims, self.ps, self.xs, self.x_mean, self.x_std, self.p_mean, self.p_std], f)
+        pickle.dump([self.stacking_weights, self.posterior_samples, self.posterior_weights, self.proposal_samples, self.proposal_weights, self.training_loss, self.validation_loss, self.stacked_sequential_training_loss, self.stacked_sequential_validation_loss, self.sequential_nsims, self.ps, self.xs, self.x_mean, self.x_std, self.p_mean, self.p_std], f)
         f.close()
 
         for i in range(self.n_ndes):
@@ -352,8 +354,14 @@ class Delfi():
     
         # Main chain
         sampler.run_mcmc(state, main_chain)
+
+        # pull out the unique samples and weights
+        chain, weights = np.unique(sampler.get_chain(flat=True), axis=0, return_counts=True)
+
+        # pull out the log probabilities
+        log_prob = np.unique(sampler.get_log_prob(flat=True))
     
-        return sampler.get_chain(flat=True)
+        return chain, weights, log_prob
 
     def sequential_training(self, simulator, compressor, n_initial, n_batch, n_populations, proposal = None, \
                             simulator_args = None, compressor_args = None, safety = 5, plot = True, batch_size = 100, \
@@ -402,7 +410,11 @@ class Delfi():
             # Generate posterior samples
             if save_intermediate_posteriors:
                 print('Sampling approximate posterior...')
-                self.posterior_samples = self.emcee_sample(log_likelihood = lambda x: self.log_posterior_stacked(x, self.data).numpy(),
+
+                # initial position for emcee sampler
+
+                # sample
+                self.posterior_samples, self.posterior_weights, self.log_posterior_values = self.emcee_sample(log_likelihood = lambda x: self.log_posterior_stacked(x, self.data).numpy(),
                                                            x0=[self.posterior_samples[-i,:] for i in range(self.nwalkers)], \
                                                            main_chain=self.posterior_chain_length)
             
@@ -415,8 +427,7 @@ class Delfi():
 
                 # If plot == True, plot the current posterior estimate
                 if plot == True:
-                    self.triangle_plot([self.posterior_samples], \
-                                    savefig=True, \
+                    self.triangle_plot([self.posterior_samples], weights=[self.posterior_weights], savefig=True, \
                                     filename='{}seq_train_post_0.pdf'.format(self.results_dir))
     
             # Save attributes if save == True
@@ -436,7 +447,7 @@ class Delfi():
         
                 # Sample the current posterior approximation
                 print('Sampling proposal density...')
-                self.proposal_samples = \
+                self.proposal_samples, self.proposal_weights, self.log_proposal_values = \
                     self.emcee_sample(log_likelihood = lambda x: self.log_geometric_mean_proposal_stacked(x, self.data).numpy(), \
                                       x0=[self.proposal_samples[-j,:] for j in range(self.nwalkers)], \
                                       main_chain=self.proposal_chain_length)
@@ -468,7 +479,7 @@ class Delfi():
                 # Generate posterior samples
                 if save_intermediate_posteriors:
                     print('Sampling approximate posterior...')
-                    self.posterior_samples = self.emcee_sample(log_likelihood = lambda x: self.log_posterior_stacked(x, self.data).numpy(),
+                    self.posterior_samples, self.posterior_weights, self.log_posterior_values = self.emcee_sample(log_likelihood = lambda x: self.log_posterior_stacked(x, self.data).numpy(),
                                                            x0=[self.posterior_samples[-i,:] for i in range(self.nwalkers)], \
                                                            main_chain=self.posterior_chain_length)
                 
@@ -482,7 +493,7 @@ class Delfi():
                     # If plot == True
                     if plot == True:
                         # Plot the posterior
-                        self.triangle_plot([self.posterior_samples], \
+                        self.triangle_plot([self.posterior_samples], weights=[self.posterior_weights], \
                                         savefig=True, \
                                         filename='{}seq_train_post_{:d}.pdf'.format(self.results_dir, i + 1))
 
@@ -567,7 +578,7 @@ class Delfi():
                 ps[i,:] = (self.prior.sample() - self.theta_fiducial)/self.fisher_errors
                 
                 # Draws from asymptotic posterior
-                ps[n_batch + i,:] = (self.asymptotic_posterior.sample() - self.theta_fiducial)/self.fisher_errors
+                ps[n_batch + i,:] = (self.asymptotic_posterior.draw() - self.theta_fiducial)/self.fisher_errors
                 
                 # Drawn from Gaussian with 3x anticipated covariance matrix
                 ps[2*n_batch + i,:] = (proposal.sample() - self.theta_fiducial)/self.fisher_errors
@@ -594,13 +605,13 @@ class Delfi():
             # Generate posterior samples
             if plot==True:
                 print('Sampling approximate posterior...')
-                self.posterior_samples = self.emcee_sample(log_likelihood = lambda x: self.log_posterior_stacked(x, self.data).numpy(),
+                self.posterior_samples, self.posterior_weights, self.log_posterior_values = self.emcee_sample(log_likelihood = lambda x: self.log_posterior_stacked(x, self.data).numpy(),
                                                            x0=[self.posterior_samples[-i,:] for i in range(self.nwalkers)], \
                                                            main_chain=self.posterior_chain_length)
                 print('Done.')
 
                 # Plot the posterior
-                self.triangle_plot([self.posterior_samples], \
+                self.triangle_plot([self.posterior_samples], weights = [self.posterior_weights], \
                                     savefig=True, \
                                     filename='{}fisher_train_post.pdf'.format(self.results_dir))
 
@@ -612,6 +623,7 @@ class Delfi():
         mc_samples = [MCSamples(samples=s, weights = None, names = self.names, labels = self.labels, ranges = self.ranges) for s in samples]
 
         # Triangle plot
+        plt.close()
         with mpl.rc_context():
             g = plots.getSubplotPlotter(width_inch = 12)
             g.settings.figure_legend_frame = False
