@@ -172,12 +172,12 @@ class Delfi():
             
             # Restore the NDE models
             for i in range(self.n_ndes):
-                self.nde[i].load_weights(self.restore_filename + "_NDE{}.tf".format(i))
+                self.nde[i].load_weights(self.restore_filename + "_NDE{}_".format(i))
 
     # Save object attributes
     def saver(self):
     
-        f = open(self.restore_filename, 'wb')
+        f = open(self.restore_filename + ".pkl", 'wb')
         pickle.dump([self.stacking_weights, self.posterior_samples, self.posterior_weights, self.proposal_samples, self.proposal_weights, self.training_loss, self.validation_loss, self.stacked_sequential_training_loss, self.stacked_sequential_validation_loss, self.sequential_nsims, self.ps, self.xs, self.x_mean, self.x_std, self.p_mean, self.p_std], f)
         f.close()
 
@@ -288,7 +288,7 @@ class Delfi():
             self.sequential_nsims.append(self.n_sims)
 
             # Save attributes if save == True
-            if self.save == True:
+            if self.save is True:
                 self.saver()
     
     # Run n_batch simulations
@@ -432,7 +432,7 @@ class Delfi():
                                     filename='{}seq_train_post_0.pdf'.format(self.results_dir))
     
             # Save attributes if save == True
-            if self.save == True:
+            if self.save is True:
                 self.saver()
 
         # Loop through a number of populations
@@ -532,7 +532,7 @@ class Delfi():
         self.stacking_weights = self.stacking_weights/sum(self.stacking_weights)
 
         # if save == True, save everything
-        if self.save == True:
+        if self.save is True:
             self.saver()
 
     def load_simulations(self, xs_batch, ps_batch):
@@ -628,6 +628,10 @@ class Delfi():
                 self.triangle_plot([self.posterior_samples], weights=[self.posterior_weights], \
                                     savefig=True, \
                                     filename='{}fisher_train_post.pdf'.format(self.results_dir))
+
+            # save current state if save=True
+            if self.save is True:
+                self.saver()
 
     def triangle_plot(self, samples = None, weights = None, savefig = False, filename = None):
 
