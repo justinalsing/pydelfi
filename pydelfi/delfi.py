@@ -182,7 +182,7 @@ class Delfi():
         f.close()
 
         for i in range(self.n_ndes):
-            self.nde[i].save_weights(self.restore_filename + "_NDE{}.tf".format(i))
+            self.nde[i].save_weights(self.restore_filename + "_NDE{}_".format(i))
     
     # Divide list of jobs between MPI processes
     def allocate_jobs(self, n_jobs):
@@ -521,7 +521,7 @@ class Delfi():
         # Train the networks
         for n in range(self.n_ndes):
             # Train the NDE
-            val_loss, train_loss = self.trainer[n].train(training_data, f_val = validation_split, epochs=epochs, n_batch=batch_size, progress_bar=self.progress_bar, patience=patience, file_name=self.restore_filename + "_NDE{}.tf".format(n), mode=mode)
+            val_loss, train_loss = self.trainer[n].train(training_data, f_val = validation_split, epochs=epochs, n_batch=batch_size, progress_bar=self.progress_bar, patience=patience, file_name=self.restore_filename + "_NDE{}_".format(n), mode=mode)
         
             # Save the training and validation losses
             self.training_loss[n] = np.concatenate([self.training_loss[n], train_loss])
