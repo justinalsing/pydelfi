@@ -13,9 +13,7 @@ import tensorflow_probability as tfp
 tfd = tfp.distributions
 
 # pydelfi imports
-import priors as priors
-import ndes
-import train
+from pydelfi import priors, ndes#, train
 
 class Delfi():
 
@@ -26,32 +24,6 @@ class Delfi():
                  show_plot = True, results_dir = "", progress_bar = True, input_normalization = None,
                  graph_restore_filename = "graph_checkpoint", restore_filename = "restore.pkl", restore = False, save = True):
         
-        # Input validation
-        for i in range(len(nde)):
-
-            # Check all NDEs expect same number of parameters
-            if nde[0].n_parameters != nde[i].n_parameters:
-                err_msg = 'NDEs have inconsistent parameter counts. ' + \
-                          'NDE 0: {:d} pars; NDE {:d}: {:d} pars.'
-                raise ValueError(err_msg.format(nde[0].n_parameters, \
-                                                i, nde[i].n_parameters))
-
-            # Check all NDEs expect same data length
-            if nde[0].n_data != nde[i].n_data:
-                err_msg = 'NDEs have inconsistent data counts. ' + \
-                          'NDE 0: {:d} data; NDE {:d}: {:d} data.'
-                raise ValueError(err_msg.format(nde[0].n_data, \
-                                                i, nde[i].n_data))
-
-            # Check length of data provided is consistent with NDE
-            # expectations
-            if nde[i].n_data != len(data):
-                err_msg = 'inconsistent compressed data lengths. ' + \
-                          'Compressed data have shape' + \
-                          str(data.shape) + \
-                          '; NDE {:d} expects length {:d}.'
-                raise ValueError(err_msg.format(i, nde[i].n_data))
-
         # Data
         self.data = data
         self.D = len(data)
