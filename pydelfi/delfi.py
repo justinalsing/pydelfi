@@ -638,7 +638,7 @@ class Delfi():
         # Set samples to the posterior samples by default
         if samples is None:
             samples = [self.posterior_samples]
-        mc_samples = [MCSamples(samples=s, weights = None, names = self.names, labels = self.labels, ranges = self.ranges) for s in samples]
+        mc_samples = [MCSamples(samples=s, weights=weights, names=self.names, labels=self.labels, ranges=self.ranges) for s in samples]
 
         # Triangle plot
         plt.close()
@@ -655,11 +655,10 @@ class Delfi():
                     ax = g.subplots[i,j]
                     xtl = ax.get_xticklabels()
                     ax.set_xticklabels(xtl, rotation=45)
-            plt.tight_layout()
             plt.subplots_adjust(hspace=0, wspace=0)
             
             if savefig:
-                plt.savefig(filename)
+                plt.savefig(filename, bbox_inches='tight')
             if self.show_plot:
                 plt.show()
             else:
