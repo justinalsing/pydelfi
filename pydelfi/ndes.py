@@ -12,27 +12,27 @@ class NDE():
             self.itype = tf.int32
         else:
             self.itype = tf.int64
-        
+
         if type(model) is list:
             self.n_stack = len(model)
         else:
             self.n_stack = 1
             model = [model]
-        
+
         self.error_stack = None
         self.set_stack()
-            
+
         # model weighting
         self.weighting = tf.ones((self.n_stack,), name="weighting")
         self.model = model
         self.prior = prior
-            
+
         if optimiser_arguments is not None:
             self.optimiser = optimiser(optimiser_arguments)
         else:
-            self.optimiser = optimiser() 
+            self.optimiser = optimiser()
         super(NDE, self).__init__(**kwargs)
-        
+
     @tf.function
     def single_train_epoch(self, dataset, variables_list, n_batch):
         loss = tf.zeros((self.n_stack,))
@@ -45,7 +45,7 @@ class NDE():
                 # Compute the loss for this batch.
                 neg_log_prob = -tf.reduce_mean(self.log_prob(y_batch_train, x_batch_train), -1)
                 neg_total_log_prob = tf.reduce_sum(neg_log_prob)
-            # Retrieve the gradients of the trainable variables wrt the loss and 
+            # Retrieve the gradients of the trainable variables wrt the loss and
             # pass to optimizer.
             grads = tape.gradient(neg_total_log_prob, variables_list)
             self.optimiser.apply_gradients(zip(grads, variables_list))
@@ -55,7 +55,7 @@ class NDE():
             #    self.optimiser.apply_gradients(zip(grads[i], self.model[i].trainable_variables))
             loss = tf.add(loss, neg_log_prob)
         return tf.divide(loss, n_batch)
-        
+
     @tf.function
     def single_validate_epoch(self, dataset, n_batch):
         loss = tf.zeros((self.n_stack,))
@@ -66,7 +66,7 @@ class NDE():
             neg_log_prob = -tf.reduce_mean(self.log_prob(y_batch_train, x_batch_train), -1)
             loss = tf.add(loss, neg_log_prob)
         return tf.divide(loss, n_batch)
-    
+
     def fit(self, data, f_val=0.1, epochs=1000, n_batch=100,
             patience=20, file_name='tmp_model', progress_bar=True):
         """
@@ -79,33 +79,33 @@ class NDE():
         :param file_name: string of name (with or without folder) where model is saved.
         :param progress_bar: display progress bar?
         """
-        
+
         self.set_stack(train=True)
         variables_list = self.get_variables_list()
-        
+
         # Parse full training data and determine size of training set
         data_X, data_Y = data
         data_X = tf.convert_to_tensor(data_X, dtype=self.dtype)
         data_Y = tf.convert_to_tensor(data_Y, dtype=self.dtype)
-            
+
         n_sims = data_X.shape[0]
-        
+
         is_train = tfd.Categorical(probs=[f_val, 1. - f_val], dtype=tf.bool).sample(n_sims)
         n_train = tf.reduce_sum(tf.cast(is_train, dtype=tf.int64))
         n_val = n_sims - n_train
-        
+
         n_train_batches = n_train // n_batch
         if n_train_batches == 0:
             n_train_batches = 1
         n_train_batches = tf.cast(n_train_batches, dtype=self.dtype)
-        
+
         n_val_batches = int(n_val / n_batch)
         if n_val_batches == 0:
             n_val_batches = 1
         n_val_batches = tf.cast(n_val_batches, dtype=self.dtype)
-        
+
         # Create training and validation Dataset objects, shuffling and batching the training data. Note
-        # the default behaviour of Dataset.shuffle() sets reshuffle_each_iteration=True, and 
+        # the default behaviour of Dataset.shuffle() sets reshuffle_each_iteration=True, and
         # Dataset.batch() sets drop_remainder=False
         train_dataset = tf.data.Dataset.from_tensor_slices((data_X[is_train],
                                                             data_Y[is_train]))
@@ -119,11 +119,11 @@ class NDE():
         es_count = tf.zeros((self.n_stack,), dtype=tf.int64)
         temp_params = [[] for i in self.stack]
         temp_weighting = [tf.divide(tf.ones(1, dtype=self.dtype), tf.convert_to_tensor(0, dtype=self.dtype)) for i in self.stack]
-        
+
         # Validation and training losses
         train_losses = []
         val_losses = []
-        
+
         # Progress bar, if desired
         if progress_bar:
             if self.isnotebook():
@@ -131,13 +131,13 @@ class NDE():
             else:
                 pbar = tqdm.trange(epochs, desc="Training")
             pbar.set_postfix(ordered_dict={"train loss":0, "val loss":0}, refresh=True)
-        
+
         # Main training loop
         for epoch in range(epochs):
             # Iterate over the batches of the dataset.
             train_losses.append(self.single_train_epoch(train_dataset, variables_list, n_train_batches))
             val_losses.append(self.single_validate_epoch(val_dataset, n_val_batches))
-    
+
             ''' TC there is an error in the early stopping - should be a relatively easy fix
             # Use validation loss to stop training early
             improving = val_losses[-1] < tf.concat([temp_weighting[i] for i in self.stack], 0)
@@ -166,14 +166,12 @@ class NDE():
                     ordered_dict={
                         "train loss":train_losses[-1].numpy(),
                         "val loss":val_losses[-1].numpy(),
-                        "patience counter":es_count.numpy()}, 
+                        "patience counter":es_count.numpy()},
                     refresh=True)
-        #TC using lnL as weighting rather than L... we should probably sort this out. The problem is that exp(lnL)=0 for many many epochs (could we use this as a stopping criterior?)
-        #self.weighting = tf.exp(-tf.concat(temp_weighting, 0))
-        self.weighting = -tf.concat(temp_weighting, 0)
+        self.weighting = tf.exp(-tf.concat(temp_weighting, 0))
         self.set_stack()
         return tf.stack(val_losses), tf.stack(train_losses)
-    
+
     def set_stack(self, train=False, error=None):
         stack = list(range(self.n_stack))
         if train:
@@ -186,14 +184,14 @@ class NDE():
             self.stack = stack
             if self.error_stack is not None:
                 self.stack = self.error_stack
-                
+
     def get_variables_list(self):
         variable_list = []
         for i in self.stack:
             for variable in self.model[i].trainable_variables:
                 variable_list.append(variable)
         return variable_list
-                
+
     @tf.function
     def log_prob(self, data, conditional=None):
         """
@@ -202,12 +200,12 @@ class NDE():
         :param parameters: (conditional) input parameters to evaluate density at
         """
         return tf.stack([
-            self.model[element].log_prob(data, conditional=conditional) 
+            self.model[element].log_prob(data, conditional=conditional)
             for element in self.stack], 0)
-    
+
     @tf.function
     def weighted_log_prob(self, data, conditional=None):
-        return tf.reduce_sum(tf.add(self.weighting, self.log_prob(data, conditional=conditional)))
+        return tf.math.log(self.weighted_prob(data, conditional=conditional))
 
     @tf.function
     def prob(self, data, conditional=None):
@@ -219,19 +217,21 @@ class NDE():
         return tf.stack([
             self.model[element].prob(data, conditional=conditional)
             for element in self.stack], 0)
-    
+
     @tf.function
     def weighted_prob(self, data, conditional=None):
-        return tf.exp(self.weighted_log_prob(data, conditional=conditional))
+        return tf.reduce_sum(
+            tf.multiply(self.weighting,
+                        self.prob(data, conditional=conditional)))
 
     @tf.function
     def sample(self, n=None, conditional=None):
         if n is None:
             n = 1
         return tf.stack([
-            self.model[element].sample(n, conditional=conditional) 
+            self.model[element].sample(n, conditional=conditional)
             for element in self.stack], 0)
-    
+
     @tf.function
     def weighted_sample(self, n=None, conditional=None):
         """
@@ -243,27 +243,27 @@ class NDE():
             n = 1
         samples = self.sample(n, conditional=None)
         return self.variance(samples)
-    
+
     @tf.function
     def log_posterior(self, data, conditional=None):
         return tf.add(
-            self.log_prob(data, conditional=conditional), 
+            self.log_prob(data, conditional=conditional),
             tf.cast(self.prior.log_prob(conditional), dtype=self.dtype))
-    
+
     @tf.function
     def weighted_log_posterior(self, data, conditional=None):
         data = tf.cast(data, dtype=self.dtype)
         conditional = tf.cast(conditional, dtype=self.dtype)
-        return tf.add(self.weighted_log_prob(data, conditional=conditional), 
+        return tf.add(self.weighted_log_prob(data, conditional=conditional),
                       tf.cast(self.prior.log_prob(conditional), dtype=self.dtype))
-    
+
     @tf.function
     def geometric_mean(self, data, conditional=None):
-        return tf.multiply(tf.convert_to_tensor(0.5, dtype=self.dtype), 
-                           tf.add(self.weighted_log_prob(data, conditional=conditional), 
+        return tf.multiply(tf.convert_to_tensor(0.5, dtype=self.dtype),
+                           tf.add(self.weighted_log_prob(data, conditional=conditional),
                                   tf.multiply(tf.convert_to_tensor(2, dtype=self.dtype),
                                               tf.cast(self.prior.log_prob(conditional), dtype=self.dtype))))
-    
+
     @tf.function
     def variance(self, x):
         weighted_sum = tf.reduce_sum(self.weighting)
@@ -293,7 +293,7 @@ class NDE():
             data = tf.tile(data, multiples)
             conditional = tf.repeat(conditional, data_shape, 0)
         return data, conditional, data_shape, conditional_shape
-        
+
     def reshape(self, value, data_shape, conditional_shape):
         value_shape = value.shape
         return tf.reshape(value, [data_shape, conditional_shape] + value_shape)
@@ -310,9 +310,9 @@ class NDE():
                 return False  # Other type (?)
         except NameError:
             return False
-    
 
-def ConditionalMaskedAutoregressiveFlow(n_parameters, n_data, n_hidden=[50,50], 
+
+def ConditionalMaskedAutoregressiveFlow(n_parameters, n_data, n_hidden=[50,50],
                                         activation=tf.keras.activations.tanh, all_layers=True):
     """
     Conditional Masked Autoregressive Flow.
@@ -321,8 +321,8 @@ def ConditionalMaskedAutoregressiveFlow(n_parameters, n_data, n_hidden=[50,50],
         distribution=tfd.Normal(loc=0., scale=1.),
         bijector=tfb.MaskedAutoregressiveFlow(
             shift_and_log_scale_fn=tfb.AutoregressiveNetwork(
-                params=2, 
-                hidden_units=n_hidden, 
+                params=2,
+                hidden_units=n_hidden,
                 activation=activation,
                 event_shape=[n_data],
                 conditional=True,
@@ -345,22 +345,22 @@ class MixtureDensityNetwork(Train):
         :param dtype: tensorflow type
         """
         super(MixtureDensityNetwork, self).__init__()
-        
+
         # dimension of data and parameter spaces
         self.n_parameters = n_parameters
         self.n_data = n_data
-        
+
         # number of mixture components and network architecture
         self.n_components = n_components
         self.n_loc = self.n_data
         self.n_scale = self.n_data * (self.n_data + 1) // 2
         self.n_output = (self.n_loc + self.n_scale + 1) * self.n_components
-        
+
         # required size of output layer for a Gaussian mixture density network
         self.n_hidden = n_hidden
         self.activation = activation
         self.architecture = [self.n_parameters] + self.n_hidden + [self.n_output]
-        
+
         self._network = self.build_network()
 
     def build_network(self):
@@ -380,7 +380,7 @@ class MixtureDensityNetwork(Train):
         scale = tf.keras.layers.Lambda(lambda x: tf.split(x, self.n_components, axis=-1))(scale_)
         model = tf.keras.models.Model(inputs=layers[0], outputs=[amplitude, loc, scale])
         return model
-        
+
     def log_prob(self, x, **kwargs):
         with tf.name_scope(self.name or 'MDN_call'):
             if "conditional_input" not in kwargs.keys():
@@ -390,26 +390,26 @@ class MixtureDensityNetwork(Train):
             if tensorshape_util.rank(conditional.shape) == 1:
                 conditional = conditional[tf.newaxis, ...]
             amplitude, loc, scale = self._network(conditional)
-            
+
             print(amplitude)
             return tfp.distributions.MixtureSameFamily(
                 mixture_distribution=tfp.distributions.Categorical(
-                    logits=None, 
-                    probs=tf.transpose(amplitude), 
+                    logits=None,
+                    probs=tf.transpose(amplitude),
                     validate_args=False,
-                    allow_nan_stats=True, 
+                    allow_nan_stats=True,
                     name='Categorical'),
                 components_distribution=tfp.distributions.MultivariateNormalTriL(
-                    loc=loc, 
-                    scale_tril=tfp.math.fill_triangular(scale), 
-                    validate_args=False, 
+                    loc=loc,
+                    scale_tril=tfp.math.fill_triangular(scale),
+                    validate_args=False,
                     allow_nan_stats=True,
                     name='MultivariateNormalTriL'),
                 reparameterize=False,
-                validate_args=False, 
-                allow_nan_stats=True, 
+                validate_args=False,
+                allow_nan_stats=True,
                 name='MixtureSameFamily').log_prob(x)
-        
+
     def prob(self, x, **kwargs):
         with tf.name_scope(self.name or 'MDN_call'):
             if "conditional_input" not in kwargs.keys():
@@ -421,23 +421,23 @@ class MixtureDensityNetwork(Train):
             amplitude, loc, scale = self._network(conditional)
             return tfp.distributions.MixtureSameFamily(
                 mixture_distribution=tfp.distributions.Categorical(
-                    logits=amplitude, 
-                    probs=None, 
-                    dtype=tf.int32, 
+                    logits=amplitude,
+                    probs=None,
+                    dtype=tf.int32,
                     validate_args=False,
-                    allow_nan_stats=True, 
+                    allow_nan_stats=True,
                     name='Categorical'),
                 components_distribution=tfp.distributions.MultivariateNormalTriL(
-                    loc=loc, 
-                    scale_tril=scale, 
-                    validate_args=False, 
+                    loc=loc,
+                    scale_tril=scale,
+                    validate_args=False,
                     allow_nan_stats=True,
                     name='MultivariateNormalTriL'),
                 reparameterize=False,
-                validate_args=False, 
-                allow_nan_stats=True, 
+                validate_args=False,
+                allow_nan_stats=True,
                 name='MixtureSameFamily').prob
-        
+
     def sample(self, n, **kwargs):
             with tf.name_scope(self.name or 'MDN_call'):
                 if "conditional_input" not in kwargs.keys():
@@ -449,20 +449,20 @@ class MixtureDensityNetwork(Train):
                 amplitude, loc, scale = self._network(conditional)
                 return tfp.distributions.MixtureSameFamily(
                     mixture_distribution=tfp.distributions.Categorical(
-                        logits=amplitude, 
-                        probs=None, 
-                        dtype=tf.int32, 
+                        logits=amplitude,
+                        probs=None,
+                        dtype=tf.int32,
                         validate_args=False,
-                        allow_nan_stats=True, 
+                        allow_nan_stats=True,
                         name='Categorical'),
                     components_distribution=tfp.distributions.MultivariateNormalTriL(
-                        loc=loc, 
-                        scale_tril=scale, 
-                        validate_args=False, 
+                        loc=loc,
+                        scale_tril=scale,
+                        validate_args=False,
                         allow_nan_stats=True,
                         name='MultivariateNormalTriL'),
                     reparameterize=False,
-                    validate_args=False, 
-                    allow_nan_stats=True, 
-                    name='MixtureSameFamily').sample(n) 
+                    validate_args=False,
+                    allow_nan_stats=True,
+                    name='MixtureSameFamily').sample(n)
 '''

@@ -12,9 +12,9 @@ setup(name='pydelfi',
       install_requires=[
           "tensorflow==v2.1.0",
           "tensorflow_probability@git+https://github.com/tomcharnock/probability.git@conditionalmaf"
-          "getdist",
-          "emcee",
-          "scipy",
-          "tqdm"
+          "getdist>=1.1.0",
+          "emcee>=3.0.2",
+          "scipy>=1.4.1",
+          "tqdm>=4.41.1",
+          "numpy>=1.18.1"
       ])
-
