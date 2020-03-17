@@ -259,10 +259,13 @@ class NDE():
 
     @tf.function
     def geometric_mean(self, data, conditional=None):
-        return tf.multiply(tf.convert_to_tensor(0.5, dtype=self.dtype),
+        half = tf.cast(0.5, dtype=self.dtype)
+        two = tf.cast(2., dtype=self.dtype)
+        data = tf.cast(data, dtype=self.dtype)
+        conditional = tf.cast(conditional, dtype=self.dtype)
+        return tf.multiply(half,
                            tf.add(self.weighted_log_prob(data, conditional=conditional),
-                                  tf.multiply(tf.convert_to_tensor(2, dtype=self.dtype),
-                                              tf.cast(self.prior.log_prob(conditional), dtype=self.dtype))))
+                                  tf.multiply(two, self.prior.log_prob(conditional))))
 
     @tf.function
     def variance(self, x):

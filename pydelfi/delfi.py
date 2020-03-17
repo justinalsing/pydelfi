@@ -365,9 +365,11 @@ class Delfi():
             # Generate posterior samples
             if save_intermediate_posteriors:
                 print('Sampling approximate posterior...')
-                x0 = self.posterior_samples[np.argpartition(self.log_posterior_values, -9*len(self.log_posterior_values)//10)[-self.nwalkers:], :]
+                x0 = [self.posterior_samples[-i,:] for i in range(self.nwalkers)]
+                #x0 = self.posterior_samples[np.argpartition(self.log_posterior_values, -9*len(self.log_posterior_values)//10)[-self.nwalkers:], :]
                 self.posterior_samples, self.posterior_weights, self.log_posterior_values = self.emcee_sample(log_likelihood = lambda x: self.NDEs.weighted_log_posterior(self.data, conditional=x).numpy(),
-                                                           x0=[x0[i] for i in range(self.nwalkers)],
+                                                           #x0=[x0[i] for i in range(self.nwalkers)],
+                                                           x0=x0,
                                                            main_chain=self.posterior_chain_length)
 
                 # Save posterior samples to file
@@ -399,10 +401,12 @@ class Delfi():
 
                 # Sample the current posterior approximation
                 print('Sampling proposal density...')
-                x0 = self.proposal_samples[np.argpartition(self.log_proposal_values, -9*len(self.proposal_samples)//10)[-self.nwalkers:], :]
+                #x0 = self.proposal_samples[np.argpartition(self.log_proposal_values, -9*len(self.proposal_samples)//10)[-self.nwalkers:], :]
+                x0 = [self.proposal_samples[-j,:] for j in range(self.nwalkers)]
                 self.proposal_samples, self.proposal_weights, self.log_proposal_values = \
-                    self.emcee_sample(log_likelihood = lambda x: self.NDEs.geometric_mean(self.data, conditional=x).numpy(),
-                                      x0=[x0[j] for j in range(self.nwalkers)],
+                    self.emcee_sample(log_likelihood = lambda x: self.NDEs.geometric_mean(self.data.astype(np.float32), conditional=x.astype(np.float32)).numpy(),
+                                      x0=x0,
+                                      #x0=[x0[j] for j in range(self.nwalkers)],
                                       main_chain=self.proposal_chain_length)
                 ps_batch = self.proposal_samples[-safety * n_batch:,:]
                 print('Done.')
@@ -436,10 +440,12 @@ class Delfi():
                 # Generate posterior samples
                 if save_intermediate_posteriors:
                     print('Sampling approximate posterior...')
-                    x0 = self.posterior_samples[np.argpartition(self.log_posterior_values, -9*len(self.log_posterior_values)//10)[-self.nwalkers:], :]
+                    #x0 = self.posterior_samples[np.argpartition(self.log_posterior_values, -9*len(self.log_posterior_values)//10)[-self.nwalkers:], :]
+                    x0 = [self.posterior_samples[-i,:] for i in range(self.nwalkers)]
                     self.posterior_samples, self.posterior_weights, self.log_posterior_values = \
                         self.emcee_sample(log_likelihood = lambda x: self.NDEs.weighted_log_posterior(self.data, conditional=x).numpy(),
-                                          x0=[x0[i] for i in range(self.nwalkers)],
+                                          #x0=[x0[i] for i in range(self.nwalkers)],
+                                          x0=x0,
                                           main_chain=self.posterior_chain_length)
 
                     # Save posterior samples to file
@@ -538,10 +544,12 @@ class Delfi():
             # Generate posterior samples
             if plot==True:
                 print('Sampling approximate posterior...')
-                x0 = self.posterior_samples[np.argpartition(self.log_posterior_values, -9*len(self.log_posterior_values)//10)[-self.nwalkers:], :]
+                #x0 = self.posterior_samples[np.argpartition(self.log_posterior_values, -9*len(self.log_posterior_values)//10)[-self.nwalkers:], :]
+                x0 = [self.posterior_samples[-i,:] for i in range(self.nwalkers)]
                 self.posterior_samples, self.posterior_weights, self.log_posterior_value = \
                     self.emcee_sample(log_likelihood = lambda x: self.NDEs.weighted_log_posterior(self.data, conditional=x).numpy(),
-                                      x0=[x0[i] for i in range(self.nwalkers)],
+                                      #x0=[x0[i] for i in range(self.nwalkers)],
+                                      x0=x0,
                                       main_chain=self.posterior_chain_length)
                 print('Done.')
 
