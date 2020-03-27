@@ -92,7 +92,7 @@ class NDE():
         #is_train = tfd.Categorical(probs=[f_val, 1. - f_val], dtype=tf.bool).sample(n_sims)
         n_val = int(n_sims * f_val)
         n_train = n_sims - n_val
-        is_train = tf.convert_to_tensor(np.random.permutation([True] * n_train + [False] * n_val), dtype=tf.bool)
+        is_train = tf.random.shuffle([True] * n_train + [False] * n_val)
         #n_train = tf.reduce_sum(tf.cast(is_train, dtype=tf.int64))
 
         n_train_batches = n_train // n_batch
