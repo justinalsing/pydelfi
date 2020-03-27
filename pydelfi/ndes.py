@@ -198,8 +198,8 @@ class NDE():
                 pbar.update(1)
                 pbar.set_postfix(
                     ordered_dict={
-                        "train loss":this_train_loss.numpy(),
-                        "val loss":this_val_loss.numpy(),
+                        "train loss":["{0:.3g}".format(this_train_loss.numpy()) for i in range(len(this_train_loss.numpy()))],
+                        "val loss":["{0:.3g}".format(this_val_loss.numpy()) for i in range(len(this_train_loss.numpy()))],
                         "patience counter":es_count.numpy(),
                         "stack":stack},
                     refresh=True)
