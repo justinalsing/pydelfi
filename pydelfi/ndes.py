@@ -138,8 +138,7 @@ class NDE():
         for epoch in range(epochs):
             # Iterate over the batches of the dataset.
             this_train_loss = self.single_train_epoch(train_dataset, stack, variables_list, stack_size, n_train_batches)
-            this_val_loss = self.single_validate_epoch(val_dataset, stack, stack_size, n_val_batches)
-            
+            this_val_loss = self.single_validate_epoch(val_dataset, stack, stack_size, 1)
             
             # early stopping
             state = this_val_loss < tf.gather(temp_val_loss, stack)
