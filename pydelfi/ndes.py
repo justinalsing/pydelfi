@@ -46,7 +46,7 @@ class NDE():
             with tf.GradientTape() as tape:
                 # Compute the loss for this batch.
                 neg_log_prob = -tf.reduce_mean(self.log_prob(x_batch_train, conditional=y_batch_train, stack=stack), -1)
-                neg_total_log_prob = tf.reduce_sum(neg_log_prob)
+                neg_total_log_prob = tf.reduce_mean(neg_log_prob)
             # Retrieve the gradients of the trainable variables wrt the loss and
             # pass to optimizer.
             grads = tape.gradient(neg_total_log_prob, variables_list)
@@ -89,9 +89,11 @@ class NDE():
 
         n_sims = data_X.shape[0]
 
-        is_train = tfd.Categorical(probs=[f_val, 1. - f_val], dtype=tf.bool).sample(n_sims)
-        n_train = tf.reduce_sum(tf.cast(is_train, dtype=tf.int64))
-        n_val = n_sims - n_train
+        #is_train = tfd.Categorical(probs=[f_val, 1. - f_val], dtype=tf.bool).sample(n_sims)
+        n_val = int(n_sims * f_val)
+        n_train = n_sims - n_val
+        is_train = tf.convert_to_tensor(np.random.permutation([True] * n_train + [False] * n_val), dtype=tf.bool)
+        #n_train = tf.reduce_sum(tf.cast(is_train, dtype=tf.int64))
 
         n_train_batches = n_train // n_batch
         if n_train_batches == 0:
