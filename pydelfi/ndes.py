@@ -450,13 +450,11 @@ class MixtureDensityNetwork(tfd.Distribution):
             for layer, size in enumerate(self.architecture[:-1])])
         model.add(
             tf.keras.layers.Dense(
-                tfp.layers.MixtureNormal.params_size(
+                tfp.layers.MixtureSameFamily.params_size(
                     self.n_components, 
-                    [self.n_data])))
+                    component_params_size=tfp.layers.MultivariateNormalTriL.params_size(self.n_data))))
         model.add(
-            tfp.layers.MixtureNormal(
-                self.n_components, 
-                [self.n_data]))
+            tfp.layers.MixtureSameFamily(self.n_components, tfp.layers.MultivariateNormalTriL(self.n_data)))
         return model
 
     def log_prob(self, x, **kwargs):
