@@ -89,6 +89,8 @@ class Delfi():
             self.data_scale = self.fisher_errors
             self.theta_shift = self.theta_fiducial
             self.theta_scale = self.fisher_errors
+        elif input_normalization is "auto":
+            self.input_normalization_set = False
         else:
             self.data_shift, self.data_scale, self.theta_shift, self.theta_scale = input_normalization
 
@@ -466,11 +468,12 @@ class Delfi():
 
     def load_simulations(self, data_batch, theta_batch):
 
-        if self.input_normalization is None:
-            self.data_shift = np.mean(data_batch, axis = 0).astype(np.float32)
-            self.data_scale = np.std(data_batch, axis = 0).astype(np.float32)
-            self.theta_shift = np.mean(theta_batch, axis = 0).astype(np.float32)
-            self.theta_scale = np.std(theta_batch, axis = 0).astype(np.float32)
+        if self.input_normalization is "auto":
+            if self.input_normalization is False:
+                self.data_shift = np.mean(data_batch, axis = 0).astype(np.float32)
+                self.data_scale = np.std(data_batch, axis = 0).astype(np.float32)
+                self.theta_shift = np.mean(theta_batch, axis = 0).astype(np.float32)
+                self.theta_scale = np.std(theta_batch, axis = 0).astype(np.float32)
 
         self.theta_realizations = np.concatenate([self.theta_realizations, theta_batch])
         self.data_realizations = np.concatenate([self.data_realizations, data_batch])
