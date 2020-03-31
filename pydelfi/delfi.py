@@ -196,7 +196,7 @@ class Delfi():
     def acquisition(self, theta):
 
         # Compute log_posteriors
-        P = self.NDEs.log_posterior((self.data - self.data_shift)/self.data_scale, conditional=(theta - self.theta_shift)/self.theta_scale)
+        P = self.NDEs.weighted_log_prob((self.data - self.data_shift)/self.data_scale, conditional=(theta - self.theta_shift)/self.theta_scale)
         P_mean, P_variance = self.NDEs.variance(P)
 
         # Check whether prior is zero or not
@@ -292,7 +292,7 @@ class Delfi():
 
         # Set the log likelihood (default to the posterior if none given)
         if log_likelihood is None:
-            log_likelihood = lambda theta: self.NDEs.weighted_log_posterior((self.data.astype(np.float32) - self.data_shift)/self.data_scale, conditional=(theta.astype(np.float32) - self.theta_shift)/self.theta_scale ).numpy()
+            log_likelihood = lambda theta: self.NDEs.weighted_log_prob((self.data.astype(np.float32) - self.data_shift)/self.data_scale, conditional=(theta.astype(np.float32) - self.theta_shift)/self.theta_scale ).numpy() + self.prior.log_prob(theta.astype(np.float32))
 
         # Set up default x0
         if x0 is None:
@@ -404,7 +404,7 @@ class Delfi():
                 print('Sampling proposal density...')
                 x0 = [self.proposal_samples[-j,:] for j in range(self.nwalkers)]
                 self.proposal_samples, self.proposal_weights, self.log_proposal_values = \
-                    self.emcee_sample(log_likelihood = lambda theta: self.NDEs.geometric_mean((self.data.astype(np.float32) - self.data_shift)/self.data_scale, conditional=(theta.astype(np.float32) - self.theta_shift)/self.theta_scale).numpy(),
+                    self.emcee_sample(log_likelihood = lambda theta: self.NDEs.weighted_log_prob((self.data.astype(np.float32) - self.data_shift)/self.data_scale, conditional=(theta.astype(np.float32) - self.theta_shift)/self.theta_scale).numpy() + 2*self.prior.log_prob(theta.astype(np.float32)).numpy(),
                                       x0=x0,
                                       #x0=[x0[j] for j in range(self.nwalkers)],
                                       main_chain=self.proposal_chain_length)
@@ -504,9 +504,9 @@ class Delfi():
 
             # Sample parameters from some broad proposal
             theta_batch = np.zeros((3*n_batch, self.npar))
-            theta_batch[:n_batch] = self.prior.sample(n_batch)
-            theta_batch[n_batch:2*n_batch] = self.asymptotic_posterior.sample(n_batch)
-            theta_batch[2*n_batch:] = proposal.sample(n_batch)
+            theta_batch[:n_batch,:] = self.prior.sample(n_batch)
+            theta_batch[n_batch:2*n_batch,:] = self.asymptotic_posterior.sample(n_batch)
+            theta_batch[2*n_batch:,:] = proposal.sample(n_batch)
 
             # Sample data assuming a Gaussian likelihood
             data_batch = np.array([theta + np.dot(L, np.random.normal(0, 1, self.npar)) for theta in theta_batch], dtype=np.float32)
