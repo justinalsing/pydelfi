@@ -292,7 +292,7 @@ class Delfi():
 
         # Set the log likelihood (default to the posterior if none given)
         if log_likelihood is None:
-            log_likelihood = lambda theta: self.NDEs.weighted_log_prob((self.data.astype(np.float32) - self.data_shift)/self.data_scale, conditional=(theta.astype(np.float32) - self.theta_shift)/self.theta_scale ).numpy() + self.prior.log_prob(theta.astype(np.float32))
+            log_likelihood = lambda theta: self.NDEs.weighted_log_prob((self.data.astype(np.float32) - self.data_shift)/self.data_scale, conditional=(theta.astype(np.float32) - self.theta_shift)/self.theta_scale ).numpy() + self.prior.log_prob(theta.astype(np.float32)).numpy()
 
         # Set up default x0
         if x0 is None:
@@ -404,7 +404,7 @@ class Delfi():
                 print('Sampling proposal density...')
                 x0 = [self.proposal_samples[-j,:] for j in range(self.nwalkers)]
                 self.proposal_samples, self.proposal_weights, self.log_proposal_values = \
-                    self.emcee_sample(log_likelihood = lambda theta: self.NDEs.weighted_log_prob((self.data.astype(np.float32) - self.data_shift)/self.data_scale, conditional=(theta.astype(np.float32) - self.theta_shift)/self.theta_scale).numpy() + 2*self.prior.log_prob(theta.astype(np.float32)).numpy(),
+                    self.emcee_sample(log_likelihood = lambda theta: 0.5*self.NDEs.weighted_log_prob((self.data.astype(np.float32) - self.data_shift)/self.data_scale, conditional=(theta.astype(np.float32) - self.theta_shift)/self.theta_scale).numpy() + self.prior.log_prob(theta.astype(np.float32)).numpy(),
                                       x0=x0,
                                       #x0=[x0[j] for j in range(self.nwalkers)],
                                       main_chain=self.proposal_chain_length)
