@@ -386,7 +386,7 @@ class NDE():
             return False
 
 
-def ConditionalMaskedAutoregressiveFlow(n_parameters, n_data, n_hidden=[50,50],
+def ConditionalMADE(n_parameters, n_data, n_hidden=[50,50],
                                         activation=tf.keras.layers.LeakyReLU(0.01), all_layers=True):
     """
     Conditional Masked Autoregressive Flow.
@@ -402,6 +402,27 @@ def ConditionalMaskedAutoregressiveFlow(n_parameters, n_data, n_hidden=[50,50],
                 conditional=True,
                 conditional_shape=[n_parameters],
                 conditional_input_all_layers=True)),
+        event_shape=[n_data])
+
+def ConditionalMaskedAutoregressiveFlow(n_parameters, n_data, n_mades=5, n_hidden=[50,50],
+                                        activation=tf.keras.layers.LeakyReLU(0.01), all_layers=True):
+    """
+    Conditional Masked Autoregressive Flow.
+    """
+
+    # construct stack of MADEs
+    bijector = tfb.Chain([tfb.MaskedAutoregressiveFlow(tfb.AutoregressiveNetwork(
+                params=2,
+                hidden_units=n_hidden,
+                activation=activation,
+                event_shape=[n_data],
+                conditional=True,
+                conditional_shape=[n_parameters],
+                conditional_input_all_layers=True)) for i in range(n_mades)])
+
+    return tfd.TransformedDistribution(
+        distribution=tfd.Normal(loc=0., scale=1.),
+        bijector=bijector,
         event_shape=[n_data])
 
 
