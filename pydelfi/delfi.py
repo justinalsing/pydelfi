@@ -80,10 +80,10 @@ class Delfi():
         # Re-scaling for inputs to NDE
         self.input_normalization = input_normalization
         if input_normalization is None:
-            self.data_shift = np.zeros(self.D)
-            self.data_scale = np.ones(self.D)
-            self.theta_shift = np.zeros(self.npar)
-            self.theta_scale = np.ones(self.npar)
+            self.data_shift = np.zeros(self.D).astype(np.float32)
+            self.data_scale = np.ones(self.D).astype(np.float32)
+            self.theta_shift = np.zeros(self.npar).astype(np.float32)
+            self.theta_scale = np.ones(self.npar).astype(np.float32)
         elif input_normalization is "fisher":
             self.data_shift = self.theta_fiducial
             self.data_scale = self.fisher_errors
@@ -499,27 +499,21 @@ class Delfi():
                 validate_args=False, allow_nan_stats=True,
                 name='AsymptoticPosterior')
 
-            # Anticipated covariance of the re-scaled data
-            Cdd = np.zeros((self.npar, self.npar))
-            for i in range(self.npar):
-                for j in range(self.npar):
-                    Cdd[i,j] = self.Finv[i,j]/(self.fisher_errors[i]*self.fisher_errors[j])
-            Ldd = np.linalg.cholesky(Cdd)
-            Cddinv = np.linalg.inv(Cdd)
-            ln2pidetCdd = np.log(2*np.pi*np.linalg.det(Cdd))
+            # Cholesky of inverse Fisher information matrix
+            L = np.linalg.cholesky(self.Finv)
 
             # Sample parameters from some broad proposal
             theta_batch = np.zeros((3*n_batch, self.npar))
-            theta_batch[:n_batch] = (self.prior.sample(n_batch) - self.theta_shift)/self.theta_scale
-            theta_batch[n_batch:2*n_batch] = (self.asymptotic_posterior.sample(n_batch) - self.theta_shift)/self.theta_scale
-            theta_batch[2*n_batch:] = (proposal.sample(n_batch) - self.theta_shift)/self.theta_scale
+            theta_batch[:n_batch] = self.prior.sample(n_batch)
+            theta_batch[n_batch:2*n_batch] = self.asymptotic_posterior.sample(n_batch)
+            theta_batch[2*n_batch:] = proposal.sample(n_batch)
 
             # Sample data assuming a Gaussian likelihood
-            data_batch = np.array([theta + np.dot(Ldd, np.random.normal(0, 1, self.npar)) for theta in theta_batch], dtype=np.float32)
+            data_batch = np.array([theta + np.dot(L, np.random.normal(0, 1, self.npar)) for theta in theta_batch], dtype=np.float32)
 
             # Construct the initial training-set
-            fisher_theta_train = theta_batch.astype(np.float32).reshape((3*n_batch, self.npar))
-            fisher_data_train = data_batch.astype(np.float32).reshape((3*n_batch, self.npar))
+            fisher_theta_train = (theta_batch.astype(np.float32).reshape((3*n_batch, self.npar)) - self.theta_shift)/self.theta_scale
+            fisher_data_train = (data_batch.astype(np.float32).reshape((3*n_batch, self.npar)) - self.data_shift)/self.data_scale
 
 #TC - we should add maximising the ELBO between propsal and NDEs, that would be the most correct thing to do and would be really quick (not yet implemented in )
             # Train the networks on these initial simulations
