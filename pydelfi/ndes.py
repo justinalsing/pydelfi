@@ -45,7 +45,7 @@ class NDE():
             # during the forward pass, which enables autodifferentiation.
             with tf.GradientTape() as tape:
                 # Compute the loss for this batch.
-                neg_log_prob = -tf.reduce_mean(self.log_prob(x_batch_train, conditional=y_batch_train, stack=stack), -1)
+                neg_log_prob = -tf.reduce_mean(self.log_prob(y_batch_train, conditional=x_batch_train, stack=stack), -1)
                 neg_total_log_prob = tf.reduce_mean(neg_log_prob)
             # Retrieve the gradients of the trainable variables wrt the loss and
             # pass to optimizer.
@@ -61,7 +61,7 @@ class NDE():
             # Unpack batched training data
             x_batch_train, y_batch_train = xy_batch_train
             # Compute the loss for this batch.
-            neg_log_prob = -tf.reduce_mean(self.log_prob(x_batch_train, conditional=y_batch_train, stack=stack), -1)
+            neg_log_prob = -tf.reduce_mean(self.log_prob(y_batch_train, conditional=x_batch_train, stack=stack), -1)
             loss = tf.add(loss, neg_log_prob)
         return tf.divide(loss, n_batch)
 
@@ -203,7 +203,7 @@ class NDE():
                         "patience counter":es_count.numpy(),
                         "stack":stack},
                     refresh=True)
-        self.weighting = tf.exp(-temp_val_loss)
+        self.weighting = tf.nn.softmax(-temp_val_loss - tf.math.reduce_max(-temp_val_loss))
         self.set_stack()
         return tf.stack(val_losses), tf.stack(train_losses)
 
