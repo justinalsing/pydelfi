@@ -21,7 +21,7 @@ class Delfi():
                  param_limits=None, param_names=None, nwalkers=100,
                  posterior_chain_length=100, proposal_chain_length=100,
                  rank=0, n_procs=1, comm=None, red_op=None, show_plot=True, 
-                 results_dir="", filename=None, progress_bar=True, input_normalization = None,
+                 results_dir="", filename=None, progress_bar=True, input_normalization=None,
                  save=True, restore=False, **kwargs):
 
         # Data
@@ -63,7 +63,7 @@ class Delfi():
         # Fisher matrix and fiducial parameters
         if Finv is not None:
             self.Finv = Finv.astype(np.float32)
-            self.fisher_errors = np.sqrt(np.diag(self.Finv))
+            self.fisher_errors = np.sqrt(np.diag(self.Finv)).astype(np.float32)
             self.theta_fiducial = theta_fiducial.astype(np.float32)
             scale = tf.linalg.cholesky(self.Finv)
             self.asymptotic_posterior = tfd.TruncatedMultivariateNormalTriL(
@@ -84,7 +84,7 @@ class Delfi():
             self.data_scale = np.ones(self.D)
             self.theta_shift = np.zeros(self.npar)
             self.theta_scale = np.ones(self.npar)
-        elif input_normalization is 'fisher':
+        elif input_normalization is "fisher":
             self.data_shift = self.theta_fiducial
             self.data_scale = self.fisher_errors
             self.theta_shift = self.theta_fiducial
@@ -196,7 +196,7 @@ class Delfi():
     def acquisition(self, theta):
 
         # Compute log_posteriors
-        P = self.NDEs.log_posterior(self.data, conditional=theta)
+        P = self.NDEs.log_posterior((self.data - self.data_shift)/self.data_scale, conditional=(theta - self.theta_shift)/self.theta_scale)
         P_mean, P_variance = self.NDEs.variance(P)
 
         # Check whether prior is zero or not
@@ -292,7 +292,7 @@ class Delfi():
 
         # Set the log likelihood (default to the posterior if none given)
         if log_likelihood is None:
-            log_likelihood = lambda theta: self.NDEs.weighted_log_posterior((self.data - self.data_shift)/self.data_scale, conditional=(theta - self.theta_shift)/self.theta_scale ).numpy()
+            log_likelihood = lambda theta: self.NDEs.weighted_log_posterior((self.data.astype(np.float32) - self.data_shift)/self.data_scale, conditional=(theta.astype(np.float32) - self.theta_shift)/self.theta_scale ).numpy()
 
         # Set up default x0
         if x0 is None:
@@ -504,7 +504,6 @@ class Delfi():
             for i in range(self.npar):
                 for j in range(self.npar):
                     Cdd[i,j] = self.Finv[i,j]/(self.fisher_errors[i]*self.fisher_errors[j])
-                    #Cdd[i,j] = self.Finv[i,j]
             Ldd = np.linalg.cholesky(Cdd)
             Cddinv = np.linalg.inv(Cdd)
             ln2pidetCdd = np.log(2*np.pi*np.linalg.det(Cdd))
