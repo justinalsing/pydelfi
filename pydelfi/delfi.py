@@ -21,7 +21,7 @@ class Delfi():
                  param_limits=None, param_names=None, nwalkers=100,
                  posterior_chain_length=100, proposal_chain_length=100,
                  rank=0, n_procs=1, comm=None, red_op=None, show_plot=True, 
-                 results_dir="", filename=None, progress_bar=True,
+                 results_dir="", filename=None, progress_bar=True, input_normalization = None,
                  save=True, restore=False, **kwargs):
 
         # Data
@@ -77,11 +77,26 @@ class Delfi():
             self.theta_fiducial = None
             self.asymptotic_posterior = None
 
+        # Re-scaling for inputs to NDE
+        self.input_normalization = input_normalization
+        if input_normalization is None:
+            self.data_shift = np.zeros(self.D)
+            self.data_scale = np.ones(self.D)
+            self.theta_shift = np.zeros(self.npar)
+            self.theta_scale = np.ones(self.npar)
+        elif input_normalization is 'fisher':
+            self.data_shift = self.theta_fiducial
+            self.data_scale = self.fisher_errors
+            self.theta_shift = self.theta_fiducial
+            self.theta_scale = self.fisher_errors
+        else:
+            self.data_shift, self.data_scale, self.theta_shift, self.theta_scale = input_normalization
+
         # Training data [initialize empty]
-        self.ps = np.array([], dtype=np.float32).reshape(0,self.npar)
-        self.xs = np.array([], dtype=np.float32).reshape(0,self.D)
-        self.x_train = []
-        self.y_train = []
+        self.theta_realizations = np.array([], dtype=np.float32).reshape(0,self.npar)
+        self.data_realizations = np.array([], dtype=np.float32).reshape(0,self.D)
+        self.theta_train = []
+        self.data_train = []
         self.n_sims = 0
 
         # MCMC chain parameters for EMCEE
@@ -138,7 +153,7 @@ class Delfi():
         if restore == True:
 
             # Restore the dynamic object attributes
-            self.NDEs.weighting, self.posterior_samples, self.posterior_weights, self.proposal_samples, self.proposal_weights, self.training_loss, self.validation_loss, self.stacked_sequential_training_loss, self.stacked_sequential_validation_loss, self.sequential_nsims, self.ps, self.xs = pickle.load(open(self.results_dir + "/" + self.filename + ".pkl", 'rb'))
+            self.NDEs.weighting, self.posterior_samples, self.posterior_weights, self.proposal_samples, self.proposal_weights, self.training_loss, self.validation_loss, self.stacked_sequential_training_loss, self.stacked_sequential_validation_loss, self.sequential_nsims, self.theta_realizations, self.data_realizations = pickle.load(open(self.results_dir + "/" + self.filename + ".pkl", 'rb'))
 
             # Restore the NDE models
             self.NDEs.load_models(self.NDEs.stack, directory=self.results_dir, filename=self.filename)
@@ -147,7 +162,7 @@ class Delfi():
     def saver(self):
 
         f = open(self.results_dir + "/" + self.filename + ".pkl", 'wb')
-        pickle.dump([self.NDEs.weighting.numpy(), self.posterior_samples, self.posterior_weights, self.proposal_samples, self.proposal_weights, self.training_loss, self.validation_loss, self.stacked_sequential_training_loss, self.stacked_sequential_validation_loss, self.sequential_nsims, self.ps, self.xs], f)
+        pickle.dump([self.NDEs.weighting.numpy(), self.posterior_samples, self.posterior_weights, self.proposal_samples, self.proposal_weights, self.training_loss, self.validation_loss, self.stacked_sequential_training_loss, self.stacked_sequential_validation_loss, self.sequential_nsims, self.theta_realizations, self.data_realizations], f)
         f.close()
 
         self.NDEs.save_models(self.NDEs.stack, directory=self.results_dir, filename=self.filename)
@@ -207,17 +222,17 @@ class Delfi():
                     theta_optimal = res.x
 
             # Array of parameters to run simulations
-            ps = np.array([theta_optimal for k in range(n_batch)], dtype=np.float32)
+            thetas = np.array([theta_optimal for k in range(n_batch)], dtype=np.float32)
 
             # Run a small batch of simulations at the acquisition point
-            xs_batch, ps_batch = self.run_simulation_batch(n_batch, ps, simulator, compressor, simulator_args, compressor_args, seed_generator = seed_generator, sub_batch = sub_batch)
+            data_batch, theta_batch = self.run_simulation_batch(n_batch, thetas, simulator, compressor, simulator_args, compressor_args, seed_generator = seed_generator, sub_batch = sub_batch)
 
             # Augment the training data
-            self.add_simulations(xs_batch, ps_batch)
+            self.add_simulations(data_batch, theta_batch)
 
             #TC - we should add maximising the ELBO between propsal distribution and NDEs, that would be the most correct thing to do and would be really quick (not yet implemented in ndes)
             # Train the networks on these initial simulations
-            val_loss, train_loss = self.NDEs.fit(data=[self.x_train, self.y_train], f_val=validation_split, epochs=epochs, n_batch=max(self.n_sims//8, batch_size), patience=patience)
+            val_loss, train_loss = self.NDEs.fit(data=[self.theta_train, self.data_train], f_val=validation_split, epochs=epochs, n_batch=max(self.n_sims//8, batch_size), patience=patience)
             self.training_loss = np.vstack([self.training_loss, train_loss])
             self.validation_loss = np.vstack([self.validation_loss, val_loss])
 
@@ -325,26 +340,26 @@ class Delfi():
         # proposal array (self.inds_prop) and accepted arrays
         # (self.inds_acpt) to allow for easy MPI communication.
         if self.rank == 0:
-            ps = proposal.sample(safety * n_initial).numpy()
+            theta_batch = proposal.sample(safety * n_initial).numpy()
         else:
-            ps = np.zeros((safety * n_initial, self.npar))
+            theta_batch = np.zeros((safety * n_initial, self.npar))
         if self.use_mpi:
-            self.comm.Bcast(ps, root=0)
+            self.comm.Bcast(theta_batch, root=0)
         self.inds_prop = self.allocate_jobs(safety * n_initial)
         self.inds_acpt = self.allocate_jobs(n_initial)
 
         # Run simulations at those theta values
-        xs_batch, ps_batch = self.run_simulation_batch(n_initial, ps, simulator, compressor, simulator_args, compressor_args, seed_generator = seed_generator, sub_batch = sub_batch)
+        data_batch, theta_batch = self.run_simulation_batch(n_initial, theta_batch, simulator, compressor, simulator_args, compressor_args, seed_generator = seed_generator, sub_batch = sub_batch)
 
         # Train on master only
         if self.rank == 0:
 
             # Construct the initial training-set
-            self.load_simulations(xs_batch, ps_batch)
+            self.load_simulations(data_batch, theta_batch)
 
-#TC - we should add maximising the ELBO between propsal distribution and NDEs, that would be the most correct thing to do and would be really quick (not yet implemented in ndes)
+            #TC - we should add maximising the ELBO between propsal distribution and NDEs, that would be the most correct thing to do and would be really quick (not yet implemented in ndes)
             # Train the networks on these initial simulations
-            val_loss, train_loss = self.NDEs.fit(data=[self.x_train, self.y_train], f_val=validation_split, epochs=epochs, n_batch=max(self.n_sims//8, batch_size), patience=patience)
+            val_loss, train_loss = self.NDEs.fit(data=[self.theta_train, self.data_train], f_val=validation_split, epochs=epochs, n_batch=max(self.n_sims//8, batch_size), patience=patience)
             self.training_loss = np.vstack([self.training_loss, train_loss])
             self.validation_loss = np.vstack([self.validation_loss, val_loss])
 
@@ -396,28 +411,28 @@ class Delfi():
                                       x0=x0,
                                       #x0=[x0[j] for j in range(self.nwalkers)],
                                       main_chain=self.proposal_chain_length)
-                ps_batch = self.proposal_samples[-safety * n_batch:,:]
+                theta_batch = self.proposal_samples[-safety * n_batch:,:]
                 print('Done.')
 
             else:
-                ps_batch = np.zeros((safety * n_batch, self.npar))
+                theta_batch = np.zeros((safety * n_batch, self.npar))
             if self.use_mpi:
-                self.comm.Bcast(ps_batch, root=0)
+                self.comm.Bcast(theta_batch, root=0)
 
             # Run simulations
             self.inds_prop = self.allocate_jobs(safety * n_batch)
             self.inds_acpt = self.allocate_jobs(n_batch)
-            xs_batch, ps_batch = self.run_simulation_batch(n_batch, ps_batch, simulator, compressor, simulator_args, compressor_args, seed_generator = seed_generator, sub_batch = sub_batch)
+            data_batch, theta_batch = self.run_simulation_batch(n_batch, theta_batch, simulator, compressor, simulator_args, compressor_args, seed_generator = seed_generator, sub_batch = sub_batch)
 
             # Train on master only
             if self.rank == 0:
 
                 # Augment the training data
-                self.add_simulations(xs_batch, ps_batch)
+                self.add_simulations(data_batch, theta_batch)
 
 #TC - we should add maximising the ELBO between propsal distribution(?) and NDEs, that would be the most correct thing to do and would be really quick (not yet implemented in )
                 # Train the networks on these initial simulations
-                val_loss, train_loss = self.NDEs.fit(data=[self.x_train, self.y_train], f_val=validation_split, epochs=epochs, n_batch=max(self.n_sims//8, batch_size), patience=patience)
+                val_loss, train_loss = self.NDEs.fit(data=[self.theta_train, self.data_train], f_val=validation_split, epochs=epochs, n_batch=max(self.n_sims//8, batch_size), patience=patience)
                 self.training_loss = np.vstack([self.training_loss, train_loss])
                 self.validation_loss = np.vstack([self.validation_loss, val_loss])
 
@@ -454,19 +469,26 @@ class Delfi():
                     # Plot the training loss convergence
                     self.sequential_training_plot(savefig=True, filename='{}seq_train_loss.pdf'.format(self.results_dir))
 
-    def load_simulations(self, xs_batch, ps_batch):
-        self.ps = np.concatenate([self.ps, ps_batch])
-        self.xs = np.concatenate([self.xs, xs_batch])
-        self.x_train = self.ps.astype(np.float32)
-        self.y_train = self.xs.astype(np.float32)
-        self.n_sims += len(ps_batch)
+    def load_simulations(self, data_batch, theta_batch):
 
-    def add_simulations(self, xs_batch, ps_batch):
-        self.ps = np.concatenate([self.ps, ps_batch])
-        self.xs = np.concatenate([self.xs, xs_batch])
-        self.x_train = self.ps.astype(np.float32)
-        self.y_train = self.xs.astype(np.float32)
-        self.n_sims += len(ps_batch)
+        if self.input_normalization is None:
+            self.data_shift = np.mean(data_batch, axis = 0).astype(np.float32)
+            self.data_scale = np.std(data_batch, axis = 0).astype(np.float32)
+            self.theta_shift = np.mean(theta_batch, axis = 0).astype(np.float32)
+            self.theta_scale = np.std(theta_batch, axis = 0).astype(np.float32)
+
+        self.theta_realizations = np.concatenate([self.theta_realizations, theta_batch])
+        self.data_realizations = np.concatenate([self.data_realizations, data_batch])
+        self.theta_train = (self.theta_realizations.astype(np.float32) - self.theta_shift)/self.theta_scale
+        self.data_train = (self.data_realizations.astype(np.float32) - self.data_shift)/self.data_scale
+        self.n_sims += len(theta_batch)
+
+    def add_simulations(self, data_batch, theta_batch):
+        self.theta_realizations = np.concatenate([self.theta_realizations, theta_batch])
+        self.data_realizations = np.concatenate([self.data_realizations, data_batch])
+        self.theta_train = (self.theta_realizations.astype(np.float32) - self.theta_shift)/self.theta_scale
+        self.data_train = (self.data_realizations.astype(np.float32) - self.data_shift)/self.data_scale
+        self.n_sims += len(theta_batch)
 
     def fisher_pretraining(self, n_batch=5000, plot=True, batch_size=100, validation_split=0.1, epochs=1000, patience=20):
 
@@ -486,31 +508,28 @@ class Delfi():
             Cdd = np.zeros((self.npar, self.npar))
             for i in range(self.npar):
                 for j in range(self.npar):
-                    #Cdd[i,j] = self.Finv[i,j]/(self.fisher_errors[i]*self.fisher_errors[j])
-                    Cdd[i,j] = self.Finv[i,j]
+                    Cdd[i,j] = self.Finv[i,j]/(self.fisher_errors[i]*self.fisher_errors[j])
+                    #Cdd[i,j] = self.Finv[i,j]
             Ldd = np.linalg.cholesky(Cdd)
             Cddinv = np.linalg.inv(Cdd)
             ln2pidetCdd = np.log(2*np.pi*np.linalg.det(Cdd))
 
             # Sample parameters from some broad proposal
-            ps = np.zeros((3*n_batch, self.npar))
-            ps[:n_batch] = self.prior.sample(n_batch)
-            ps[n_batch:2*n_batch] = self.asymptotic_posterior.sample(n_batch)
-            ps[2*n_batch:] = proposal.sample(n_batch)
+            theta_batch = np.zeros((3*n_batch, self.npar))
+            theta_batch[:n_batch] = (self.prior.sample(n_batch) - self.theta_shift)/self.theta_scale
+            theta_batch[n_batch:2*n_batch] = (self.asymptotic_posterior.sample(n_batch) - self.theta_shift)/self.theta_scale
+            theta_batch[2*n_batch:] = (proposal.sample(n_batch) - self.theta_shift)/self.theta_scale
 
             # Sample data assuming a Gaussian likelihood
-            xs = np.array([pss + np.dot(Ldd, np.random.normal(0, 1, self.npar)) for pss in ps], dtype=np.float32)
-
-            # Evaluate the logpdf at those values
-            #fisher_logpdf_train = np.array([-0.5*np.dot(xs[i,:]-ps[i,:], np.dot(Cddinv, xs[i,:]-ps[i,:])) - 0.5*ln2pidetCdd for i in range(len(xs))])
+            data_batch = np.array([theta + np.dot(Ldd, np.random.normal(0, 1, self.npar)) for theta in theta_batch], dtype=np.float32)
 
             # Construct the initial training-set
-            fisher_x_train = ps.astype(np.float32).reshape((3*n_batch, self.npar))
-            fisher_y_train = xs.astype(np.float32).reshape((3*n_batch, self.npar))
+            fisher_theta_train = theta_batch.astype(np.float32).reshape((3*n_batch, self.npar))
+            fisher_data_train = data_batch.astype(np.float32).reshape((3*n_batch, self.npar))
 
 #TC - we should add maximising the ELBO between propsal and NDEs, that would be the most correct thing to do and would be really quick (not yet implemented in )
             # Train the networks on these initial simulations
-            val_loss, train_loss = self.NDEs.fit(data=[fisher_x_train, fisher_y_train], f_val=validation_split, epochs=epochs, n_batch=batch_size, patience=patience)
+            val_loss, train_loss = self.NDEs.fit(data=[fisher_theta_train, fisher_data_train], f_val=validation_split, epochs=epochs, n_batch=batch_size, patience=patience)
             self.training_loss = np.vstack([self.training_loss, train_loss])
             self.validation_loss = np.vstack([self.validation_loss, val_loss])
 
