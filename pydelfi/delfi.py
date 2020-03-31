@@ -245,7 +245,7 @@ class Delfi():
                 self.saver()
 
     # Run n_batch simulations
-    def run_simulation_batch(self, n_batch, ps, simulator, compressor, simulator_args, compressor_args, seed_generator = None, sub_batch = 1):
+    def run_simulation_batch(self, n_batch, thetas, simulator, compressor, simulator_args, compressor_args, seed_generator = None, sub_batch = 1):
 
         # Random seed generator: set to unsigned 32 bit int random numbers as default
         if seed_generator is None:
@@ -264,7 +264,7 @@ class Delfi():
             pbar = tqdm(total = self.inds_acpt[-1], desc = "Simulations")
         while i_acpt <= self.inds_acpt[-1]:
             try:
-                sims = simulator(ps[i_prop,:], seed_generator(), simulator_args, sub_batch)
+                sims = simulator(thetas[i_prop,:], seed_generator(), simulator_args, sub_batch)
 
                 # Make sure the sims are the right shape
                 if sub_batch == 1 and len(sims) != 1:
@@ -272,14 +272,14 @@ class Delfi():
                 compressed_sims = np.array([compressor(sims[k], compressor_args) for k in range(sub_batch)])
                 if np.all(np.isfinite(compressed_sims.flatten())):
                     data_samples[i_acpt*sub_batch:i_acpt*sub_batch+sub_batch,:] = compressed_sims
-                    parameter_samples[i_acpt*sub_batch:i_acpt*sub_batch+sub_batch,:] = ps[i_prop,:]
+                    parameter_samples[i_acpt*sub_batch:i_acpt*sub_batch+sub_batch,:] = thetas[i_prop,:]
                     i_acpt += 1
                     if self.progress_bar:
                         pbar.update(1)
                 else:
-                    print(err_msg.format('NaN/inf', ps[i_prop,:], self.rank))
+                    print(err_msg.format('NaN/inf', thetas[i_prop,:], self.rank))
             except:
-                print(err_msg.format('exception', ps[i_prop,:], self.rank))
+                print(err_msg.format('exception', thetas[i_prop,:], self.rank))
             i_prop += 1
 
         # Reduce results from all processes and return
@@ -292,7 +292,7 @@ class Delfi():
 
         # Set the log likelihood (default to the posterior if none given)
         if log_likelihood is None:
-            log_likelihood = lambda x: self.NDEs.weighted_log_posterior(self.data, conditional=x).numpy()
+            log_likelihood = lambda theta: self.NDEs.weighted_log_posterior((self.data - self.data_shift)/self.data_scale, conditional=(theta - self.theta_shift)/self.theta_scale ).numpy()
 
         # Set up default x0
         if x0 is None:
@@ -371,10 +371,7 @@ class Delfi():
             if save_intermediate_posteriors:
                 print('Sampling approximate posterior...')
                 x0 = [self.posterior_samples[-i,:] for i in range(self.nwalkers)]
-                self.posterior_samples, self.posterior_weights, self.log_posterior_values = self.emcee_sample(log_likelihood = lambda x: self.NDEs.weighted_log_posterior(self.data, conditional=x).numpy(),
-                                                           #x0=[x0[i] for i in range(self.nwalkers)],
-                                                           x0=x0,
-                                                           main_chain=self.posterior_chain_length)
+                self.posterior_samples, self.posterior_weights, self.log_posterior_values = self.emcee_sample(x0=x0, main_chain=self.posterior_chain_length)
 
                 # Save posterior samples to file
                 f = open('{}posterior_samples_0.dat'.format(self.results_dir), 'w')
@@ -407,7 +404,7 @@ class Delfi():
                 print('Sampling proposal density...')
                 x0 = [self.proposal_samples[-j,:] for j in range(self.nwalkers)]
                 self.proposal_samples, self.proposal_weights, self.log_proposal_values = \
-                    self.emcee_sample(log_likelihood = lambda x: self.NDEs.geometric_mean(self.data.astype(np.float32), conditional=x.astype(np.float32)).numpy(),
+                    self.emcee_sample(log_likelihood = lambda theta: self.NDEs.geometric_mean((self.data.astype(np.float32) - self.data_shift)/self.data_scale, conditional=(theta.astype(np.float32) - self.theta_shift)/self.theta_scale).numpy(),
                                       x0=x0,
                                       #x0=[x0[j] for j in range(self.nwalkers)],
                                       main_chain=self.proposal_chain_length)
@@ -445,9 +442,7 @@ class Delfi():
                     print('Sampling approximate posterior...')
                     x0 = [self.posterior_samples[-i,:] for i in range(self.nwalkers)]
                     self.posterior_samples, self.posterior_weights, self.log_posterior_values = \
-                        self.emcee_sample(log_likelihood = lambda x: self.NDEs.weighted_log_posterior(self.data, conditional=x).numpy(),
-                                          #x0=[x0[i] for i in range(self.nwalkers)],
-                                          x0=x0,
+                        self.emcee_sample(x0=x0,
                                           main_chain=self.posterior_chain_length)
 
                     # Save posterior samples to file
@@ -538,10 +533,7 @@ class Delfi():
                 print('Sampling approximate posterior...')
                 x0 = [self.posterior_samples[-i,:] for i in range(self.nwalkers)]
                 self.posterior_samples, self.posterior_weights, self.log_posterior_value = \
-                    self.emcee_sample(log_likelihood = lambda x: self.NDEs.weighted_log_posterior(self.data, conditional=x).numpy(),
-                                      #x0=[x0[i] for i in range(self.nwalkers)],
-                                      x0=x0,
-                                      main_chain=self.posterior_chain_length)
+                    self.emcee_sample(x0=x0, main_chain=self.posterior_chain_length)
                 print('Done.')
 
                 # Plot the posterior
