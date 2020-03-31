@@ -8,7 +8,7 @@ tfd = tfp.distributions
 tfb = tfp.bijectors
 
 class NDE():
-    def __init__(self, model, prior, optimiser=tf.keras.optimizers.Adam, optimiser_arguments=None, dtype=tf.float32, **kwargs):
+    def __init__(self, model, prior, optimiser=tf.keras.optimizers.Adam(lr=1e-4), optimiser_arguments=None, dtype=tf.float32, **kwargs):
         self.dtype = dtype
         if self.dtype == tf.float32:
             self.itype = tf.int32
