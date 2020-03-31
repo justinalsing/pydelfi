@@ -418,7 +418,7 @@ def ConditionalMaskedAutoregressiveFlow(n_parameters, n_data, n_mades=5, n_hidde
                 event_shape=[n_data],
                 conditional=True,
                 conditional_shape=[n_parameters],
-                conditional_input_all_layers=True)) for i in range(n_mades)])
+                conditional_input_all_layers=True)) for i in range(n_mades)], conditional=True, conditional_shape=[n_parameters])
 
     return tfd.TransformedDistribution(
         distribution=tfd.Normal(loc=0., scale=1.),
