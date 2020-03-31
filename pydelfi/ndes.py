@@ -411,14 +411,14 @@ def ConditionalMaskedAutoregressiveFlow(n_parameters, n_data, n_mades=5, n_hidde
     """
 
     # construct stack of MADEs
-    bijector = tfb.Chain([tfb.MaskedAutoregressiveFlow(tfb.AutoregressiveNetwork(
+    bijector = tfb.Chain([tfb.MaskedAutoregressiveFlow(shift_and_log_scale_fn=tfb.AutoregressiveNetwork(
                 params=2,
                 hidden_units=n_hidden,
                 activation=activation,
                 event_shape=[n_data],
                 conditional=True,
                 conditional_shape=[n_parameters],
-                conditional_input_all_layers=True)) for i in range(n_mades)], conditional=True, conditional_shape=[n_parameters])
+                conditional_input_all_layers=True)) for i in range(n_mades)])
 
     return tfd.TransformedDistribution(
         distribution=tfd.Normal(loc=0., scale=1.),
