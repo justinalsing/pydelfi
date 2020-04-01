@@ -426,7 +426,7 @@ class MixtureDensityNetwork(tfd.Distribution):
     """
     Implements a gaussian Mixture Density Network for modeling a conditional density p(d|\theta) (d="data", \theta="parameters")
     """
-    def __init__(self, n_parameters, n_data, n_components=3, n_hidden=[50,50], activation=tf.keras.layers.LeakyReLU(0.01), dtype=tf.float32, reparameterization_type=None, validate_args=False, allow_nan_stats=True):
+    def __init__(self, n_parameters, n_data, n_components=3, n_hidden=[50,50], activation=tf.keras.layers.LeakyReLU(0.01), dtype=tf.float32, reparameterization_type=None, validate_args=False, allow_nan_stats=True, kernel_initializer=tf.keras.initializers.RandomNormal(mean=0.0, stddev=1e-5, seed=None)):
         """
         Constructor.
         :param n_parameters: number of (conditional) inputs
@@ -453,9 +453,9 @@ class MixtureDensityNetwork(tfd.Distribution):
         self.activation = activation
         self.architecture = [self.n_parameters] + self.n_hidden
 
-        self._network = self.build_network()
+        self._network = self.build_network(kernel_initializer)
 
-    def build_network(self):
+    def build_network(self, kernel_initializer):
         """
         Individual network constructor. Builds a single mixture of Gaussians.
         """
@@ -463,13 +463,15 @@ class MixtureDensityNetwork(tfd.Distribution):
             tf.keras.layers.Dense(
                 self.architecture[layer + 1],
                 input_shape=(size,),
-                activation=self.activation)
+                activation=self.activation,
+                kernel_initializer=kernel_initializer)
             for layer, size in enumerate(self.architecture[:-1])])
         model.add(
             tf.keras.layers.Dense(
                 tfp.layers.MixtureSameFamily.params_size(
                     self.n_components,
-                    component_params_size=tfp.layers.MultivariateNormalTriL.params_size(self.n_data))))
+                    component_params_size=tfp.layers.MultivariateNormalTriL.params_size(self.n_data)),
+                kernel_initializer=kernel_initializer))
         model.add(
             tfp.layers.MixtureSameFamily(self.n_components, tfp.layers.MultivariateNormalTriL(self.n_data)))
         return model
