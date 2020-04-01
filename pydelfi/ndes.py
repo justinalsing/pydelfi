@@ -577,7 +577,7 @@ class ConditionalGaussianMADEJustin(tf.keras.Model):
         self.output_order = degrees[0]
     
     @tf.function
-    def call(self, data, parameters):
+    def call(self, data, conditional=None):
         
         # pass through layers of the network:
         
@@ -598,10 +598,10 @@ class ConditionalGaussianMADEJustin(tf.keras.Model):
         return mu, logp
     
     @tf.function
-    def u(self, data, parameters):
+    def u(self, data, conditional=None):
         
         # shift and log_scale
-        mu, logp = self.call(data, parameters)
+        mu, logp = self.call(data, conditional=conditional)
         
         # random numbers
         u = tf.exp(0.5 * logp) * (data - mu)
@@ -609,10 +609,10 @@ class ConditionalGaussianMADEJustin(tf.keras.Model):
         return u
     
     @tf.function
-    def log_prob(self, data, parameters):
+    def log_prob(self, data, conditional=None):
         
         # shift and log_scale
-        mu, logp = self.call(data, parameters)
+        mu, logp = self.call(data, conditional=conditional)
         
         # random numbers
         u = tf.exp(0.5 * logp) * (data - mu)
@@ -621,10 +621,10 @@ class ConditionalGaussianMADEJustin(tf.keras.Model):
         return tf.multiply(-0.5, self.n_data * np.log(2 * np.pi) + tf.reduce_sum(u**2 - logp, axis=1))
     
     @tf.function
-    def prob(self, data, parameters):
+    def prob(self, data, conditional=None):
         
         # shift and log_scale
-        mu, logp = self.call(data, parameters)
+        mu, logp = self.call(data, conditional=conditional)
         
         # random numbers
         u = tf.exp(0.5 * logp) * (data - mu)
@@ -740,20 +740,20 @@ class ConditionalMaskedAutoregressiveFlowJustin(tf.keras.Model):
         self.output_order = self.mades[0].output_order
             
     @tf.function
-    def call(self, data, parameters):
+    def call(self, data, conditional=None):
         
         u = [data]
         
         # loop through the MADEs
         for i in range(self.n_mades):
             # update state
-            u.append(self.mades[i].u(u[-1], parameters))
+            u.append(self.mades[i].u(u[-1], conditional=conditional))
         
         # transformed vector
         return u[-1]
     
     @tf.function
-    def log_prob(self, data, parameters):
+    def log_prob(self, data, conditional=None):
         
         u = [data]
         logdet_dudy = tf.zeros(data.shape[0])
@@ -762,10 +762,10 @@ class ConditionalMaskedAutoregressiveFlowJustin(tf.keras.Model):
         for i in range(self.n_mades):
 
             # update jacobian
-            _, logp = self.mades[i](u[-1], parameters)
+            _, logp = self.mades[i](u[-1], conditional=conditional)
             
             # update state
-            u.append(self.mades[i].u(u[-1], parameters))
+            u.append(self.mades[i].u(u[-1], conditional=conditional))
             
             logdet_dudy = logdet_dudy + 0.5 * tf.reduce_sum(logp, axis=1)
         
@@ -773,7 +773,7 @@ class ConditionalMaskedAutoregressiveFlowJustin(tf.keras.Model):
         return -0.5 * self.n_data * np.log(2 * np.pi) - 0.5 * tf.reduce_sum(u[-1] ** 2, axis=1) + logdet_dudy
 
     @tf.function
-    def prob(self, data, parameters):
+    def prob(self, data, conditional=None):
         
         u = [data]
         logdet_dudy = tf.zeros(data.shape[0])
@@ -782,11 +782,11 @@ class ConditionalMaskedAutoregressiveFlowJustin(tf.keras.Model):
         for i in range(self.n_mades):
 
             # update jacobian
-            _, logp = self.mades[i](u[-1], parameters)
+            _, logp = self.mades[i](u[-1], conditional=conditional)
             logdet_dudy = logdet_dudy + 0.5 * tf.reduce_sum(logp, axis=1)
 
             # update state
-            u.append(self.mades[i].u(u[-1], parameters))
+            u.append(self.mades[i].u(u[-1], conditional=conditional))
     
         # likelihood
         return tf.exp(-0.5 * self.n_data * np.log(2 * np.pi) - 0.5 * tf.reduce_sum(u[-1] ** 2, axis=1) + logdet_dudy)
