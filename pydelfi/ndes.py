@@ -582,7 +582,7 @@ class ConditionalGaussianMADEJustin(tf.keras.Model):
         # pass through layers of the network:
         
         # first layer
-        h = self.activations[0](tf.matmul(parameters, self.Wx) + tf.matmul(data, self.Ms[0] * self.Ws[0]) + self.bs[0])
+        h = self.activations[0](tf.matmul(conditional, self.Wx) + tf.matmul(data, self.Ms[0] * self.Ws[0]) + self.bs[0])
         
         # subsequent hidden layers
         for l, (M, W, b) in enumerate(zip(self.Ms[1:], self.Ws[1:], self.bs[1:])):
