@@ -3,9 +3,11 @@ import tensorflow_probability as tfp
 import tqdm
 import pickle
 import os
+import numpy as np
 
 tfd = tfp.distributions
 tfb = tfp.bijectors
+dtype = tf.float32
 
 class NDE():
     def __init__(self, model, prior, optimiser=tf.keras.optimizers.Adam(lr=1e-4), optimiser_arguments=None, dtype=tf.float32, **kwargs):
