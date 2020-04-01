@@ -3,6 +3,7 @@ import tensorflow_probability as tfp
 import tqdm
 import pickle
 import os
+import numpy as np
 
 tfd = tfp.distributions
 tfb = tfp.bijectors
