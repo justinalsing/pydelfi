@@ -532,7 +532,7 @@ class ConditionalGaussianMADEJustin(tf.keras.Model):
         """
         
         # super
-        super(ConditionalGaussianMADE, self).__init__()
+        super(ConditionalGaussianMADEJustin, self).__init__()
 
         # dimension of data and parameter spaces
         self.n_parameters = n_parameters
@@ -717,7 +717,7 @@ class ConditionalMaskedAutoregressiveFlowJustin(tf.keras.Model):
         """
         
         # super
-        super(ConditionalMaskedAutoregressiveFlow, self).__init__()
+        super(ConditionalMaskedAutoregressiveFlowJustin, self).__init__()
 
         # save input arguments
         self.n_parameters = n_parameters
