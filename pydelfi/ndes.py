@@ -732,7 +732,7 @@ class ConditionalMaskedAutoregressiveFlowJustin(tf.keras.Model):
         # create some MADEs
         for i in range(n_mades):
             with tf.name_scope("made_" + str(i+1)):
-                self.mades.append(ConditionalGaussianMADE(n_parameters, n_data, n_hidden, activations, output_order, mode))
+                self.mades.append(ConditionalGaussianMADEJustin(n_parameters, n_data, n_hidden, activations, output_order, mode))
             output_order = output_order if output_order is 'random' else self.mades[-1].output_order[::-1]
 
         self.output_order = self.mades[0].output_order
