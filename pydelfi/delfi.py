@@ -209,7 +209,7 @@ class Delfi():
     def train(self, training_data=[self.theta_train, self.data_train], f_val=0.1, epochs=300, n_batch=100, patience=20):
 
         # train the NDEs
-        val_loss, train_loss = self.NDEs.fit(data=training_data, f_val=validation_split, epochs=epochs, n_batch=n_batch, patience=patience)
+        val_loss, train_loss = self.NDEs.fit(data=training_data, f_val=f_val, epochs=epochs, n_batch=n_batch, patience=patience)
     
         # save the training/validation loss        
         self.training_loss = np.vstack([self.training_loss, train_loss])
