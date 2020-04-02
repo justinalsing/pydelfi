@@ -211,7 +211,7 @@ class Delfi():
         # default training data
         if training_data is None:
             training_data = [self.theta_train, self.data_train]
-            
+
         # train the NDEs
         val_loss, train_loss = self.NDEs.fit(data=training_data, f_val=f_val, epochs=epochs, n_batch=n_batch, patience=patience)
     
@@ -249,7 +249,7 @@ class Delfi():
 
             #TC - we should add maximising the ELBO between propsal distribution and NDEs, that would be the most correct thing to do and would be really quick (not yet implemented in ndes)
             # Train the networks on these initial simulations
-            self.train(data=[self.theta_train, self.data_train], f_val=validation_split, epochs=epochs, n_batch=max(self.n_sims//8, batch_size), patience=patience)
+            self.train(training_data=[self.theta_train, self.data_train], f_val=validation_split, epochs=epochs, n_batch=max(self.n_sims//8, batch_size), patience=patience)
 
             self.stacked_sequential_training_loss.append(np.sum(self.NDEs.weighting * self.training_loss[-1]))
             self.stacked_sequential_validation_loss.append(np.sum(self.NDEs.weighting * self.validation_loss[-1]))
@@ -374,7 +374,7 @@ class Delfi():
 
             #TC - we should add maximising the ELBO between propsal distribution and NDEs, that would be the most correct thing to do and would be really quick (not yet implemented in ndes)
             # Train the networks on these initial simulations
-            self.train(data=[self.theta_train, self.data_train], f_val=validation_split, epochs=epochs, n_batch=max(self.n_sims//8, batch_size), patience=patience)
+            self.train(training_data=[self.theta_train, self.data_train], f_val=validation_split, epochs=epochs, n_batch=max(self.n_sims//8, batch_size), patience=patience)
 
             self.stacked_sequential_training_loss.append(np.sum(self.NDEs.weighting * self.training_loss[-1]))
             self.stacked_sequential_validation_loss.append(np.sum(self.NDEs.weighting * self.validation_loss[-1]))
@@ -441,7 +441,7 @@ class Delfi():
                 self.add_simulations(data_batch, theta_batch)
 
                 # Train the networks on these initial simulations
-                self.train(data=[self.theta_train, self.data_train], f_val=validation_split, epochs=epochs, n_batch=max(self.n_sims//8, batch_size), patience=patience)
+                self.train(training_data=[self.theta_train, self.data_train], f_val=validation_split, epochs=epochs, n_batch=max(self.n_sims//8, batch_size), patience=patience)
 
                 self.stacked_sequential_training_loss.append(np.sum(self.NDEs.weighting * self.training_loss[-1]))
                 self.stacked_sequential_validation_loss.append(np.sum(self.NDEs.weighting * self.validation_loss[-1]))
@@ -527,7 +527,7 @@ class Delfi():
             fisher_data_train = (data_batch.astype(np.float32).reshape((3*n_batch, self.npar)) - self.data_shift)/self.data_scale
 
             # Train the networks on these initial simulations
-            self.train(data=[fisher_theta_train, fisher_data_train], f_val=validation_split, epochs=epochs, n_batch=batch_size, patience=patience)
+            self.train(training_data=[fisher_theta_train, fisher_data_train], f_val=validation_split, epochs=epochs, n_batch=batch_size, patience=patience)
 
             # Generate posterior samples
             if plot==True:
