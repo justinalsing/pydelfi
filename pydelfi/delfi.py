@@ -403,7 +403,8 @@ class Delfi():
             # Generate posterior samples
             if save_intermediate_posteriors:
                 print('Sampling approximate posterior...')
-                x0 = [self.posterior_samples[-i,:] for i in range(self.nwalkers)]
+                #x0 = [self.posterior_samples[-i,:] for i in range(self.nwalkers)]
+                x0 = self.posterior_samples[np.argpartition(self.log_posterior_values, -self.n_walkers)[-self.nwalkers:], :]
                 self.posterior_samples, self.posterior_weights, self.log_posterior_values = self.emcee_sample(x0=x0, main_chain=self.posterior_chain_length)
 
                 # Save posterior samples to file
@@ -435,7 +436,9 @@ class Delfi():
 
                 # Sample the current posterior approximation
                 print('Sampling proposal density...')
-                x0 = [self.proposal_samples[-j,:] for j in range(self.nwalkers)]
+                #x0 = [self.proposal_samples[-j,:] for j in range(self.nwalkers)]
+                x0 = self.proposal_samples[np.argpartition(self.log_proposal_values, -self.n_walkers)[-self.nwalkers:], :]
+
                 self.proposal_samples, self.proposal_weights, self.log_proposal_values = \
                     self.emcee_sample(log_target = self.log_proposal,
                                       x0=x0,
@@ -471,8 +474,7 @@ class Delfi():
                     print('Sampling approximate posterior...')
                     x0 = [self.posterior_samples[-i,:] for i in range(self.nwalkers)]
                     self.posterior_samples, self.posterior_weights, self.log_posterior_values = \
-                        self.emcee_sample(x0=x0,
-                                          main_chain=self.posterior_chain_length)
+                        self.emcee_sample(x0=x0, main_chain=self.posterior_chain_length)
 
                     # Save posterior samples to file
                     f = open('{}posterior_samples_{:d}.dat'.format(self.results_dir, i+1), 'w')
