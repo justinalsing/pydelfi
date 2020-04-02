@@ -347,7 +347,7 @@ class Delfi():
         chain, weights = np.unique(sampler.get_chain(flat=True), axis=0, return_counts=True)
 
         # pull out the log probabilities
-        log_prob = np.unique(sampler.get_log_prob(flat=True))
+        log_prob, _ = np.unique(sampler.get_log_prob(flat=True), axis=0, return_counts=True)
 
         return chain, weights, log_prob
 
