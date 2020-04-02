@@ -206,8 +206,12 @@ class Delfi():
 
 
     # train the NDEs in the stack
-    def train(self, training_data=[self.theta_train, self.data_train], f_val=0.1, epochs=300, n_batch=100, patience=20):
+    def train(self, training_data=None, f_val=0.1, epochs=300, n_batch=100, patience=20):
 
+        # default training data
+        if training_data is None:
+            training_data = [self.theta_train, self.data_train]
+            
         # train the NDEs
         val_loss, train_loss = self.NDEs.fit(data=training_data, f_val=f_val, epochs=epochs, n_batch=n_batch, patience=patience)
     
