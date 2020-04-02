@@ -390,7 +390,7 @@ class NDE():
 def ConditionalMaskedAutoregressiveFlow(
     n_parameters, n_data, n_mades=1, n_hidden=[50,50], input_order="random",
     activation=tf.keras.layers.LeakyReLU(0.01), all_layers=True,
-    kernel_initializer='glorot_uniform', bias_initializer='zeros',
+    kernel_initializer=tf.keras.initializers.RandomNormal(mean=0.0, stddev=1e-5, seed=None), bias_initializer='zeros',
     kernel_regularizer=None, bias_regularizer=None, kernel_constraint=None,
     bias_constraint=None):
     """
