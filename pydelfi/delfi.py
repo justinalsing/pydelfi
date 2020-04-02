@@ -204,6 +204,17 @@ class Delfi():
         # Check whether prior is zero or not
         return tf.multiply(self.NDEs.weighted_log_posterior(theta), tf.sqrt(P_variance))
 
+
+    # train the NDEs in the stack
+    def train(self, training_data=[self.theta_train, self.data_train], f_val=0.1, epochs=300, n_batch=100, patience=20):
+
+        # train the NDEs
+        val_loss, train_loss = self.NDEs.fit(data=training_data, f_val=validation_split, epochs=epochs, n_batch=n_batch, patience=patience)
+    
+        # save the training/validation loss        
+        self.training_loss = np.vstack([self.training_loss, train_loss])
+        self.validation_loss = np.vstack([self.validation_loss, val_loss])
+
     # Bayesian optimization training
     def bayesian_optimization_training(self, simulator, compressor, n_batch, n_populations, n_optimizations = 10, \
                                        simulator_args = None, compressor_args = None, plot = False, batch_size = 100, \
@@ -234,9 +245,7 @@ class Delfi():
 
             #TC - we should add maximising the ELBO between propsal distribution and NDEs, that would be the most correct thing to do and would be really quick (not yet implemented in ndes)
             # Train the networks on these initial simulations
-            val_loss, train_loss = self.NDEs.fit(data=[self.theta_train, self.data_train], f_val=validation_split, epochs=epochs, n_batch=max(self.n_sims//8, batch_size), patience=patience)
-            self.training_loss = np.vstack([self.training_loss, train_loss])
-            self.validation_loss = np.vstack([self.validation_loss, val_loss])
+            self.train(data=[self.theta_train, self.data_train], f_val=validation_split, epochs=epochs, n_batch=max(self.n_sims//8, batch_size), patience=patience)
 
             self.stacked_sequential_training_loss.append(np.sum(self.NDEs.weighting * self.training_loss[-1]))
             self.stacked_sequential_validation_loss.append(np.sum(self.NDEs.weighting * self.validation_loss[-1]))
@@ -361,9 +370,7 @@ class Delfi():
 
             #TC - we should add maximising the ELBO between propsal distribution and NDEs, that would be the most correct thing to do and would be really quick (not yet implemented in ndes)
             # Train the networks on these initial simulations
-            val_loss, train_loss = self.NDEs.fit(data=[self.theta_train, self.data_train], f_val=validation_split, epochs=epochs, n_batch=max(self.n_sims//8, batch_size), patience=patience)
-            self.training_loss = np.vstack([self.training_loss, train_loss])
-            self.validation_loss = np.vstack([self.validation_loss, val_loss])
+            self.train(data=[self.theta_train, self.data_train], f_val=validation_split, epochs=epochs, n_batch=max(self.n_sims//8, batch_size), patience=patience)
 
             self.stacked_sequential_training_loss.append(np.sum(self.NDEs.weighting * self.training_loss[-1]))
             self.stacked_sequential_validation_loss.append(np.sum(self.NDEs.weighting * self.validation_loss[-1]))
@@ -429,11 +436,8 @@ class Delfi():
                 # Augment the training data
                 self.add_simulations(data_batch, theta_batch)
 
-#TC - we should add maximising the ELBO between propsal distribution(?) and NDEs, that would be the most correct thing to do and would be really quick (not yet implemented in )
                 # Train the networks on these initial simulations
-                val_loss, train_loss = self.NDEs.fit(data=[self.theta_train, self.data_train], f_val=validation_split, epochs=epochs, n_batch=max(self.n_sims//8, batch_size), patience=patience)
-                self.training_loss = np.vstack([self.training_loss, train_loss])
-                self.validation_loss = np.vstack([self.validation_loss, val_loss])
+                self.train(data=[self.theta_train, self.data_train], f_val=validation_split, epochs=epochs, n_batch=max(self.n_sims//8, batch_size), patience=patience)
 
                 self.stacked_sequential_training_loss.append(np.sum(self.NDEs.weighting * self.training_loss[-1]))
                 self.stacked_sequential_validation_loss.append(np.sum(self.NDEs.weighting * self.validation_loss[-1]))
@@ -518,11 +522,8 @@ class Delfi():
             fisher_theta_train = (theta_batch.astype(np.float32).reshape((3*n_batch, self.npar)) - self.theta_shift)/self.theta_scale
             fisher_data_train = (data_batch.astype(np.float32).reshape((3*n_batch, self.npar)) - self.data_shift)/self.data_scale
 
-#TC - we should add maximising the ELBO between propsal and NDEs, that would be the most correct thing to do and would be really quick (not yet implemented in )
             # Train the networks on these initial simulations
-            val_loss, train_loss = self.NDEs.fit(data=[fisher_theta_train, fisher_data_train], f_val=validation_split, epochs=epochs, n_batch=batch_size, patience=patience)
-            self.training_loss = np.vstack([self.training_loss, train_loss])
-            self.validation_loss = np.vstack([self.validation_loss, val_loss])
+            self.train(data=[fisher_theta_train, fisher_data_train], f_val=validation_split, epochs=epochs, n_batch=batch_size, patience=patience)
 
             # Generate posterior samples
             if plot==True:
