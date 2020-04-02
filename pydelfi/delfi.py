@@ -302,19 +302,39 @@ class Delfi():
         parameter_samples = self.complete_array(parameter_samples)
         return data_samples.astype(np.float32), parameter_samples.astype(np.float32)
 
-    # EMCEE sampler
-    def emcee_sample(self, log_likelihood=None, x0=None, burn_in_chain=100, main_chain=1000):
+    # weighted log posterior
+    def weighted_log_posterior(self, theta):
 
-        # Set the log likelihood (default to the posterior if none given)
-        if log_likelihood is None:
-            log_likelihood = lambda theta: self.NDEs.weighted_log_prob((self.data.astype(np.float32) - self.data_shift)/self.data_scale, conditional=(theta.astype(np.float32) - self.theta_shift)/self.theta_scale ).numpy() + self.prior.log_prob(theta.astype(np.float32)).numpy()
+        lnP = self.NDEs.weighted_log_prob((self.data.astype(np.float32) - self.data_shift)/self.data_scale, conditional=(theta.astype(np.float32) - self.theta_shift)/self.theta_scale ).numpy() + self.prior.log_prob(theta.astype(np.float32)).numpy()
+
+        if np.isnan(lnP):
+            return -1e100
+        else:
+            return lnP
+
+    # weighted log posterior
+    def log_proposal(self, theta):
+
+        lnP = 0.5*self.NDEs.weighted_log_prob((self.data.astype(np.float32) - self.data_shift)/self.data_scale, conditional=(theta.astype(np.float32) - self.theta_shift)/self.theta_scale ).numpy() + self.prior.log_prob(theta.astype(np.float32)).numpy()
+
+        if np.isnan(lnP):
+            return -1e100
+        else:
+            return lnP
+
+    # EMCEE sampler
+    def emcee_sample(self, log_target=None, x0=None, burn_in_chain=100, main_chain=1000):
+
+        # default log target
+        if log_target is None:
+            log_target = self.weighted_log_posterior
 
         # Set up default x0
         if x0 is None:
             x0 = [self.posterior_samples[-i,:] for i in range(self.nwalkers)]
 
         # Set up the sampler
-        sampler = emcee.EnsembleSampler(self.nwalkers, self.npar, log_likelihood)
+        sampler = emcee.EnsembleSampler(self.nwalkers, self.npar, log_target)
 
         # Burn-in chain
         state = sampler.run_mcmc(x0, burn_in_chain)
@@ -417,9 +437,8 @@ class Delfi():
                 print('Sampling proposal density...')
                 x0 = [self.proposal_samples[-j,:] for j in range(self.nwalkers)]
                 self.proposal_samples, self.proposal_weights, self.log_proposal_values = \
-                    self.emcee_sample(log_likelihood = lambda theta: 0.5*self.NDEs.weighted_log_prob((self.data.astype(np.float32) - self.data_shift)/self.data_scale, conditional=(theta.astype(np.float32) - self.theta_shift)/self.theta_scale).numpy() + self.prior.log_prob(theta.astype(np.float32)).numpy(),
+                    self.emcee_sample(log_target = self.log_proposal,
                                       x0=x0,
-                                      #x0=[x0[j] for j in range(self.nwalkers)],
                                       main_chain=self.proposal_chain_length)
                 theta_batch = self.proposal_samples[-safety * n_batch:,:]
                 print('Done.')
