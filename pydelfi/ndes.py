@@ -13,6 +13,9 @@ tfd = tfp.distributions
 tfb = tfp.bijectors
 dtype = tf.float32
 
+__version__ = "v0.2"
+__author__ = "Justin Alsing, Tom Charnock and Stephen Feeney"
+
 class NDE():
     def __init__(self, model, prior, optimiser=tf.keras.optimizers.Adam(lr=1e-4), optimiser_arguments=None, dtype=tf.float32, **kwargs):
         self.dtype = dtype
