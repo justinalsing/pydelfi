@@ -5,6 +5,10 @@ import pickle
 import os
 import numpy as np
 
+from tensorflow_probability.python.internal import distribution_util
+from tensorflow_probability.python.internal import dtype_util
+from tensorflow_probability.python.internal import tensor_util
+
 tfd = tfp.distributions
 tfb = tfp.bijectors
 dtype = tf.float32
@@ -512,3 +516,222 @@ class MixtureDensityNetwork(tfd.Distribution):
         if squeeze:
             samples = tf.squeeze(samples, 1)
         return samples
+
+
+class TruncatedMultivariateNormalTriL(tfd.MultivariateNormalLinearOperator):
+    """The multivariate normal distribution on `R^k`.
+
+    The Multivariate Normal distribution is defined over `R^k` and parameterized
+    by a (batch of) length-`k` `loc` vector (aka "mu") and a (batch of) `k x k`
+    `scale` matrix; `covariance = scale @ scale.T` where `@` denotes
+    matrix-multiplication.
+
+    #### Mathematical Details
+
+    The probability density function (pdf) is,
+
+    ```none
+
+    pdf(x; loc, scale) = exp(-0.5 ||y||**2) / Z,
+    y = inv(scale) @ (x - loc),
+    Z = (2 pi)**(0.5 k) |det(scale)|,
+    ```
+
+    where:
+
+    * `loc` is a vector in `R^k`,
+    * `scale` is a matrix in `R^{k x k}`, `covariance = scale @ scale.T`,
+    * `Z` denotes the normalization constant, and,
+    * `||y||**2` denotes the squared Euclidean norm of `y`.
+    A (non-batch) `scale` matrix is:
+
+    ```none
+    scale = scale_tril
+    ```
+
+    where `scale_tril` is lower-triangular `k x k` matrix with non-zero diagonal,
+    i.e., `tf.diag_part(scale_tril) != 0`.
+
+    Additional leading dimensions (if any) will index batches.
+
+    Note that in the truncated multivariate is not correctly normalised (yet).
+
+    The MultivariateNormal distribution is a member of the [location-scale
+    family](https://en.wikipedia.org/wiki/Location-scale_family), i.e., it can be
+    constructed as,
+
+    ```none
+    X ~ MultivariateNormal(loc=0, scale=1)   # Identity scale, zero shift.
+    Y = scale @ X + loc
+    ```
+
+    Trainable (batch) lower-triangular matrices can be created with
+    `tfp.distributions.matrix_diag_transform()` and/or
+    `tfp.distributions.fill_triangular()`
+
+    #### Examples
+
+    ```python
+    tfd = tfp.distributions
+
+    # Initialize a single 3-variate Gaussian.
+    mu = [1., 2, 3]
+    cov = [[ 0.36,  0.12,  0.06],
+         [ 0.12,  0.29, -0.13],
+         [ 0.06, -0.13,  0.26]]
+    scale = tf.cholesky(cov)
+    # ==> [[ 0.6,  0. ,  0. ],
+    #      [ 0.2,  0.5,  0. ],
+    #      [ 0.1, -0.3,  0.4]])
+    mvn = tfd.TruncatedMultivariateNormalTriL(
+      loc=mu,
+      scale_tril=scale)
+
+    mvn.mean().eval()
+    # ==> [1., 2, 3]
+
+    # Covariance agrees with cholesky(cov) parameterization.
+    mvn.covariance().eval()
+    # ==> [[ 0.36,  0.12,  0.06],
+    #      [ 0.12,  0.29, -0.13],
+    #      [ 0.06, -0.13,  0.26]]
+
+    # Compute the pdf of an observation in `R^3` ; return a scalar.
+    mvn.prob([-1., 0, 1]).eval()  # shape: []
+
+    # Initialize a 2-batch of 3-variate Gaussians.
+    mu = [[1., 2, 3],
+        [11, 22, 33]]              # shape: [2, 3]
+    tril = ...  # shape: [2, 3, 3], lower triangular, non-zero diagonal.
+    mvn = tfd.TruncatedMultivariateNormalTriL(
+      loc=mu,
+      scale_tril=tril)
+
+    # Compute the pdf of two `R^3` observations; return a length-2 vector.
+    x = [[-0.9, 0, 0.1],
+       [-10, 0, 9]]     # shape: [2, 3]
+    mvn.prob(x).eval()    # shape: [2]
+
+    # Instantiate a "learnable" MVN.
+    dims = 4
+    mvn = tfd.TruncatedMultivariateNormalTriL(
+      loc=tf.Variable(tf.zeros([dims], dtype=tf.float32), name="mu"),
+      scale_tril=tfp.utils.DeferredTensor(
+          tfp.bijectors.ScaleTriL().forward,
+          tf.Variable(tf.zeros([dims * (dims + 1) // 2], dtype=tf.float32),
+                      name="raw_scale_tril")))
+    ```
+
+    """
+
+    def __init__(self,
+               loc,
+               scale_tril,
+               low,
+               high,
+               validate_args=False,
+               allow_nan_stats=True,
+               dtype=tf.float32,
+               name='truncatedMultivariateNormalTriL'):
+        """Construct Multivariate Normal distribution on `R^k` with samples
+        from a truncated boundary.
+
+        The `batch_shape` is the broadcast shape between `loc` and `scale`
+        arguments.
+
+        The `event_shape` is given by last dimension of the matrix implied by
+        `scale`. The last dimension of `loc` (if provided) must broadcast with
+        this.
+
+        Recall that `covariance = scale @ scale.T`. A (non-batch) `scale`
+        matrix is:
+
+        ```none
+        scale = scale_tril
+        ```
+
+        where `scale_tril` is lower-triangular `k x k` matrix with non-zero
+        diagonal, i.e., `tf.diag_part(scale_tril) != 0`.
+
+        Additional leading dimensions (if any) will index batches.
+
+        Args:
+          loc: Floating-point `Tensor`. Must have shape `[B1, ..., Bb, k]`
+            where `b >= 0` and `k` is the event size.
+          scale_tril: Floating-point, lower-triangular `Tensor` with non-zero
+            diagonal elements. `scale_tril` has shape `[B1, ..., Bb, k, k]`
+            where `b >= 0` and `k` is the event size.
+          low: Floating-point `Tensor`. Must have `[B1, ..., Bb, k]` where
+            `b >= 0` and `k` is the event size. Defines the lower boundary for
+            the samples.
+          high: Floating-point `Tensor`. Must have `[B1, ..., Bb, k]` where
+            `b >= 0` and `k` is the event size. Defines the upper boundary for
+            the samples.
+          validate_args: Python `bool`, default `False`. When `True`
+            distribution
+            parameters are checked for validity despite possibly degrading
+            runtime performance. When `False` invalid inputs may silently
+            render incorrect outputs.
+          allow_nan_stats: Python `bool`, default `True`. When `True`,
+            statistics (e.g., mean, mode, variance) use the value "`NaN`" to
+            indicate the result is undefined. When `False`, an exception is
+            raised if one or more of the statistic's batch members are
+            undefined.
+          name: Python `str` name prefixed to Ops created by this class.
+
+        Raises:
+          ValueError: if neither `loc` nor `scale_tril` are specified.
+        """
+        parameters = dict(locals())
+        with tf.name_scope(name) as name:
+            dtype = dtype_util.common_dtype([loc, scale_tril, low, high], dtype)
+            loc = tensor_util.convert_nonref_to_tensor(loc, name='loc',
+                                                       dtype=dtype)
+            scale_tril = tensor_util.convert_nonref_to_tensor(
+            scale_tril, name='scale_tril', dtype=dtype)
+            self.high = tensor_util.convert_nonref_to_tensor(high, name='high',
+                                                             dtype=dtype)
+            self.low = tensor_util.convert_nonref_to_tensor(low, name='low',
+                                                            dtype=dtype)
+            scale = tf.linalg.LinearOperatorLowerTriangular(
+                scale_tril, is_non_singular=True, is_self_adjoint=False,
+                is_positive_definite=False)
+            self.mvn = tfd.MultivariateNormalLinearOperator(
+                loc=loc, scale=scale, validate_args=validate_args,
+                allow_nan_stats=allow_nan_stats, name=name)
+            self.u = tfd.Blockwise(
+                [tfd.Uniform(low=low[i], high=high[i])
+                 for i in range(self.low.shape[0])])
+            super(TruncatedMultivariateNormalTriL, self).__init__(
+                loc=loc,
+                scale=scale,
+                validate_args=validate_args,
+                allow_nan_stats=allow_nan_stats,
+                name=name)
+            self._parameters = parameters
+
+    def _log_prob(self, x, **kwargs):
+        return tf.math.log(self._log_prob(x, **kwargs))
+
+    def _prob(self, x, **kwargs):
+        return tf.multiply(self.mvn.prob(x, **kwargs),
+                           self.u.prob(x, **kwargs))
+
+    def _sample_n(self, n, seed=None, **kwargs):
+        samples = self.mvn.sample(n, seed=seed, **kwargs)
+        too_low = samples < self.low
+        too_high = samples > self.high
+        rejected = tf.reduce_any(tf.logical_or(too_low, too_high), -1)
+        while tf.reduce_any(rejected):
+            new_n = tf.reduce_sum(tf.cast(rejected, dtype=tf.int32))
+            new_samples = self.mvn.sample(new_n, seed=seed, **kwargs)
+            samples = tf.tensor_scatter_nd_update(samples, tf.where(rejected),
+                                                  new_samples)
+            too_low = samples < self.low
+            too_high = samples > self.high
+            rejected = tf.reduce_any(tf.logical_or(too_low, too_high), -1)
+        return samples
+
+    @classmethod
+    def _params_event_ndims(cls):
+        return dict(loc=1, scale_tril=2)

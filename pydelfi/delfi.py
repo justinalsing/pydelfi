@@ -17,10 +17,10 @@ from pydelfi import ndes
 
 class Delfi():
 
-    def __init__(self, data, prior, nde, Finv=None, theta_fiducial=None, 
+    def __init__(self, data, prior, nde, Finv=None, theta_fiducial=None,
                  param_limits=None, param_names=None, nwalkers=100,
                  posterior_chain_length=100, proposal_chain_length=100,
-                 rank=0, n_procs=1, comm=None, red_op=None, show_plot=True, 
+                 rank=0, n_procs=1, comm=None, red_op=None, show_plot=True,
                  results_dir="", filename=None, progress_bar=True, input_normalization=None,
                  save=True, restore=False, **kwargs):
 
@@ -66,7 +66,7 @@ class Delfi():
             self.fisher_errors = np.sqrt(np.diag(self.Finv)).astype(np.float32)
             self.theta_fiducial = theta_fiducial.astype(np.float32)
             scale = tf.linalg.cholesky(self.Finv)
-            self.asymptotic_posterior = tfd.TruncatedMultivariateNormalTriL(
+            self.asymptotic_posterior = ndes.TruncatedMultivariateNormalTriL(
                 loc=self.theta_fiducial, scale_tril=scale,
                 low=self.prior.low, high=self.prior.high,
                 validate_args=False, allow_nan_stats=True,
@@ -214,8 +214,8 @@ class Delfi():
 
         # train the NDEs
         val_loss, train_loss = self.NDEs.fit(data=training_data, f_val=f_val, epochs=epochs, n_batch=n_batch, patience=patience)
-    
-        # save the training/validation loss        
+
+        # save the training/validation loss
         self.training_loss = np.vstack([self.training_loss, train_loss])
         self.validation_loss = np.vstack([self.validation_loss, val_loss])
 
@@ -360,7 +360,7 @@ class Delfi():
         if proposal is None:
             if self.Finv is not None:
                 scale = tf.linalg.cholesky((9. *self.Finv).astype(np.float32))
-                proposal = tfd.TruncatedMultivariateNormalTriL(
+                proposal = ndes.TruncatedMultivariateNormalTriL(
                     loc=self.theta_fiducial.astype(np.float32), scale_tril=scale,
                     low=self.prior.low, high=self.prior.high,
                     validate_args=False, allow_nan_stats=True,
@@ -525,7 +525,7 @@ class Delfi():
             # Generate fisher pre-training data
 
             # Broader proposal
-            proposal = tfd.TruncatedMultivariateNormalTriL(
+            proposal = ndes.TruncatedMultivariateNormalTriL(
                 loc=self.theta_fiducial, scale_tril=tf.linalg.cholesky(9*self.Finv),
                 low=self.prior.low, high=self.prior.high,
                 validate_args=False, allow_nan_stats=True,
