@@ -411,14 +411,15 @@ def ConditionalMaskedAutoregressiveFlow(
                 event_shape=[n_data],
                 conditional=True,
                 conditional_shape=[n_parameters],
-                conditional_input_all_layers=True,
+                conditional_input_layers=True,
                 input_order=input_order,
                 kernel_initializer=kernel_initializer,
                 bias_initializer=bias_initializer,
                 kernel_regularizer=kernel_regularizer,
                 bias_regularizer=bias_regularizer,
                 kernel_constraint=kernel_constraint,
-                bias_constraint=bias_constraint))
+                bias_constraint=bias_constraint),
+                name="MADE_{}".format(i))
         for i in range(n_mades)])
     return tfd.TransformedDistribution(
         distribution=tfd.Normal(loc=0., scale=1.),
