@@ -15,6 +15,9 @@ tfd = tfp.distributions
 # pydelfi imports
 from pydelfi import ndes
 
+__version__ = "v0.2"
+__author__ = "Justin Alsing, Tom Charnock and Stephen Feeney"
+
 class Delfi():
 
     def __init__(self, data, prior, nde, Finv=None, theta_fiducial=None,

@@ -2,6 +2,9 @@ from scipy.stats import multivariate_normal
 import numpy as np
 import tqdm
 
+__version__ = "v0.2"
+__author__ = "Justin Alsing, Tom Charnock and Stephen Feeney"
+
 def isnotebook():
     try:
         shell = get_ipython().__class__.__name__
