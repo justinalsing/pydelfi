@@ -44,6 +44,7 @@ class NDE():
             self.optimiser = optimiser()
         super(NDE, self).__init__(**kwargs)
 
+    @tf.function
     def single_train_epoch(self, dataset, stack, variables_list, stack_size, n_batch):
         loss = tf.zeros((stack_size,))
         for step, xy_batch_train in enumerate(dataset):
