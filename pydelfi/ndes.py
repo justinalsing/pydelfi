@@ -299,7 +299,7 @@ class NDE():
         :param parameters: (conditional) input parameters to evaluate density at
         """
         return tf.stack([
-            self.model[element].prob(data, conditional=conditional)
+            self.model[element].conditional_prob(data, conditional=conditional)
             for element in stack], 0)
 
     @tf.function
