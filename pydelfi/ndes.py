@@ -44,7 +44,6 @@ class NDE():
             self.optimiser = optimiser()
         super(NDE, self).__init__(**kwargs)
 
-    @tf.function
     def single_train_epoch(self, dataset, stack, variables_list, stack_size, n_batch):
         loss = tf.zeros((stack_size,))
         for step, xy_batch_train in enumerate(dataset):
@@ -90,7 +89,7 @@ class NDE():
         stack = list(range(self.n_stack))
         stack_size = self.n_stack
         variables_list = self.get_flat_variables_list(stack)
-
+        
         # Parse full training data and determine size of training set
         data_X, data_Y = data
         data_X = tf.convert_to_tensor(data_X, dtype=self.dtype)
@@ -281,7 +280,7 @@ class NDE():
         :param parameters: (conditional) input parameters to evaluate density at
         """
         return tf.stack([
-            self.model[element].log_prob(data, conditional=conditional)
+            self.model[element].conditional_log_prob(data, conditional=conditional)
             for element in stack], 0)
 
     @tf.function
@@ -408,30 +407,38 @@ def ConditionalMaskedAutoregressiveFlow(
     else:
         all_layers = "first_layer"
     # construct stack of MADEs
-    bijector = tfb.Chain([
-        tfb.MaskedAutoregressiveFlow(
-            shift_and_log_scale_fn=tfb.AutoregressiveNetwork(
-                params=2,
-                hidden_units=n_hidden,
-                activation=activation,
-                event_shape=[n_data],
-                conditional=True,
-                conditional_shape=[n_parameters],
-                conditional_input_layers=all_layers,
-                input_order=input_order,
-                kernel_initializer=kernel_initializer,
-                bias_initializer=bias_initializer,
-                kernel_regularizer=kernel_regularizer,
-                bias_regularizer=bias_regularizer,
-                kernel_constraint=kernel_constraint,
-                bias_constraint=bias_constraint),
+    MADEs = [tfb.MaskedAutoregressiveFlow(
+                shift_and_log_scale_fn=tfb.AutoregressiveNetwork(
+                    params=2,
+                    hidden_units=n_hidden,
+                    activation=activation,
+                    event_shape=[n_data],
+                    conditional=True,
+                    conditional_shape=[n_parameters],
+                    conditional_input_layers=all_layers,
+                    input_order=input_order,
+                    kernel_initializer=kernel_initializer,
+                    bias_initializer=bias_initializer,
+                    kernel_regularizer=kernel_regularizer,
+                    bias_regularizer=bias_regularizer,
+                    kernel_constraint=kernel_constraint,
+                    bias_constraint=bias_constraint),
                 name="MADE_{}".format(i))
-        for i in range(n_mades)])
-    return tfd.TransformedDistribution(
+             for i in range(n_mades)]
+    bijector = tfb.Chain(MADEs)
+    distribution = tfd.TransformedDistribution(
         distribution=tfd.Normal(loc=0., scale=1.),
         bijector=bijector,
         event_shape=[n_data])
-
+    put_conditional = lambda conditional : dict(
+        zip(["MADE_{}".format(i) for i in range(n_mades)], 
+            [{"conditional": tf.convert_to_tensor(conditional, dtype=tf.float32)} for i in range(n_mades)]))
+    distribution.conditional_log_prob = lambda a, conditional : distribution.log_prob(a, bijector_kwargs=put_conditional(conditional))
+    distribution.conditional_prob = lambda a, conditional : distribution.prob(a, bijector_kwargs=put_conditional(conditional))
+    distribution.conditional_sample = lambda a, conditional : distribution.sample(a, bijector_kwargs=put_conditional(conditional))
+    _ = distribution.conditional_log_prob(np.random.normal(0, 1, (1, n_data)),
+                                          conditional=np.random.normal(0, 1, (1, n_parameters)))
+    return distribution
 
 class MixtureDensityNetwork(tfd.Distribution):
     """
@@ -465,6 +472,9 @@ class MixtureDensityNetwork(tfd.Distribution):
         self.architecture = [self.n_parameters] + self.n_hidden
 
         self._network = self.build_network(kernel_initializer)
+        self.conditional_log_prob = self.log_prob
+        self.conditional_prob = self.prob
+        self.conditional_sample = self.sample
 
     def build_network(self, kernel_initializer):
         """
