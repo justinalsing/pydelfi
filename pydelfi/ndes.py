@@ -212,7 +212,7 @@ class NDE():
                         "patience counter":es_count.numpy(),
                         "stack":stack},
                     refresh=True)
-        self.weighting = tf.nn.softmax(-temp_val_loss - tf.math.reduce_max(-temp_val_loss))
+        self.weighting = tf.nn.softmax(-temp_train_loss - tf.math.reduce_max(-temp_train_loss))
         self.set_stack()
         return tf.stack(val_losses), tf.stack(train_losses)
 
@@ -536,7 +536,69 @@ class MixtureDensityNetwork(tfd.Distribution):
         return samples
 
 
-class TruncatedMultivariateNormalTriL(tfd.MultivariateNormalLinearOperator):
+class TruncatedMultivariateNormalTriL():
+ 
+
+
+    def __init__(self,
+               loc,
+               scale_tril,
+               low,
+               high,
+               validate_args=False,
+               allow_nan_stats=True,
+               dtype=tf.float32,
+               name='truncatedMultivariateNormalTriL'):
+
+        super(TruncatedMultivariateNormalTriL, self).__init__()
+   
+        parameters = dict(locals())
+        with tf.name_scope(name) as name:
+
+            dtype = dtype_util.common_dtype([loc, scale_tril, low, high], dtype)
+
+            self.loc = tensor_util.convert_nonref_to_tensor(loc, name='loc',dtype=dtype)
+
+            self.scale_tril = tensor_util.convert_nonref_to_tensor(scale_tril, name='scale_tril', dtype=dtype)
+
+            self.high = tensor_util.convert_nonref_to_tensor(high, name='high', dtype=dtype)
+
+            self.low = tensor_util.convert_nonref_to_tensor(low, name='low', dtype=dtype)
+
+            self.mvn = tfd.MultivariateNormalTriL(
+                loc=self.loc, scale_tril=self.scale_tril, validate_args=validate_args,
+                allow_nan_stats=allow_nan_stats)
+
+            self.u = tfd.Blockwise(
+                [tfd.Uniform(low=low[i], high=high[i])
+                 for i in range(self.low.shape[0])])
+
+            self._parameters = parameters
+
+    def prob(self, x, **kwargs):
+        return tf.multiply(self.mvn.prob(x, **kwargs),
+                           self.u.prob(x, **kwargs))
+
+    def log_prob(self, x, **kwargs):
+        return tf.math.log(self.prob(x, **kwargs))
+
+    def sample(self, n, seed=None, **kwargs):
+        samples = self.mvn.sample(n, seed=seed, **kwargs)
+        too_low = samples < self.low
+        too_high = samples > self.high
+        rejected = tf.reduce_any(tf.logical_or(too_low, too_high), -1)
+        while tf.reduce_any(rejected):
+            new_n = tf.reduce_sum(tf.cast(rejected, dtype=tf.int32))
+            new_samples = self.mvn.sample(new_n, seed=seed, **kwargs)
+            samples = tf.tensor_scatter_nd_update(samples, tf.where(rejected),
+                                                  new_samples)
+            too_low = samples < self.low
+            too_high = samples > self.high
+            rejected = tf.reduce_any(tf.logical_or(too_low, too_high), -1)
+        return samples
+
+
+class TruncatedMultivariateNormalTriL_(tfd.MultivariateNormalLinearOperator):
     """The multivariate normal distribution on `R^k`.
 
     The Multivariate Normal distribution is defined over `R^k` and parameterized
