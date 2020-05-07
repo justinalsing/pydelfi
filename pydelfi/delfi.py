@@ -331,27 +331,33 @@ class Delfi():
         return data_samples, parameter_samples
 
     # EMCEE sampler
-    def emcee_sample(self, log_likelihood=None, x0=None, burn_in_chain=100, main_chain=1000):
-    
-        # Set the log likelihood (default to the posterior if none given)
-        if log_likelihood is None:
-            log_likelihood = lambda x: self.log_posterior_stacked(x, self.data)[0]
-        
+    def emcee_sample(self, log_target=None, x0=None, burn_in_chain=100, main_chain=1000):
+
+        # default log target
+        if log_target is None:
+            log_target = self.weighted_log_posterior
+
         # Set up default x0
         if x0 is None:
             x0 = [self.posterior_samples[-i,:] for i in range(self.nwalkers)]
-        
+
         # Set up the sampler
-        sampler = emcee.EnsembleSampler(self.nwalkers, self.npar, log_likelihood)
-    
+        sampler = emcee.EnsembleSampler(self.nwalkers, self.npar, log_target)
+
         # Burn-in chain
         state = sampler.run_mcmc(x0, burn_in_chain)
         sampler.reset()
-    
+
         # Main chain
-        sampler.run_mcmc(state.coords, main_chain)
-    
-        return sampler.flatchain
+        sampler.run_mcmc(state, main_chain)
+
+        # pull out the unique samples and weights
+        chain, weights = np.unique(sampler.get_chain(flat=True), axis=0, return_counts=True)
+
+        # pull out the log probabilities
+        log_prob, _ = np.unique(sampler.get_log_prob(flat=True), axis=0, return_counts=True)
+
+        return chain, weights, log_prob
 
     def sequential_training(self, simulator, compressor, n_initial, n_batch, n_populations, proposal = None, \
                             simulator_args = None, compressor_args = None, safety = 5, plot = True, batch_size = 100, \
@@ -400,9 +406,8 @@ class Delfi():
             # Generate posterior samples
             if save_intermediate_posteriors:
                 print('Sampling approximate posterior...')
-                self.posterior_samples = self.emcee_sample(log_likelihood = lambda x: self.log_posterior_stacked(x, self.data)[0],
-                                                           x0=[self.posterior_samples[-i,:] for i in range(self.nwalkers)], \
-                                                           main_chain=self.posterior_chain_length)
+                x0 = self.posterior_samples[np.argpartition(self.log_posterior_values, -self.nwalkers)[-self.nwalkers:], :]
+                self.posterior_samples, self.posterior_weights, self.log_posterior_values = self.emcee_sample(x0=x0, main_chain=self.posterior_chain_length)
             
                 # Save posterior samples to file
                 f = open('{}posterior_samples_0.dat'.format(self.results_dir), 'w')
@@ -413,8 +418,7 @@ class Delfi():
 
                 # If plot == True, plot the current posterior estimate
                 if plot == True:
-                    self.triangle_plot([self.posterior_samples], \
-                                    savefig=True, \
+                    self.triangle_plot([self.posterior_samples], weights=[self.posterior_weights], savefig=True, \
                                     filename='{}seq_train_post_0.pdf'.format(self.results_dir))
     
             # Save attributes if save == True
@@ -434,10 +438,13 @@ class Delfi():
         
                 # Sample the current posterior approximation
                 print('Sampling proposal density...')
-                self.proposal_samples = \
-                    self.emcee_sample(log_likelihood = lambda x: self.log_geometric_mean_proposal_stacked(x, self.data)[0], \
-                                      x0=[self.proposal_samples[-j,:] for j in range(self.nwalkers)], \
+                x0 = self.proposal_samples[np.argpartition(self.log_proposal_values, -self.nwalkers)[-self.nwalkers:], :]
+
+                self.proposal_samples, self.proposal_weights, self.log_proposal_values = \
+                    self.emcee_sample(log_target = self.log_proposal,
+                                      x0=x0,
                                       main_chain=self.proposal_chain_length)
+
                 ps_batch = self.proposal_samples[-safety * n_batch:,:]
                 print('Done.')
 
@@ -466,9 +473,9 @@ class Delfi():
                 # Generate posterior samples
                 if save_intermediate_posteriors:
                     print('Sampling approximate posterior...')
-                    self.posterior_samples = self.emcee_sample(log_likelihood = lambda x: self.log_posterior_stacked(x, self.data)[0],
-                                                           x0=[self.posterior_samples[-i,:] for i in range(self.nwalkers)], \
-                                                           main_chain=self.posterior_chain_length)
+                    x0 = [self.posterior_samples[-i,:] for i in range(self.nwalkers)]
+                    self.posterior_samples, self.posterior_weights, self.log_posterior_values = \
+                        self.emcee_sample(x0=x0, main_chain=self.posterior_chain_length)
                 
                     # Save posterior samples to file
                     f = open('{}posterior_samples_{:d}.dat'.format(self.results_dir, i+1), 'w')
@@ -480,7 +487,7 @@ class Delfi():
                     # If plot == True
                     if plot == True:
                         # Plot the posterior
-                        self.triangle_plot([self.posterior_samples], \
+                        self.triangle_plot([self.posterior_samples], weights=[self.posterior_weights], \
                                         savefig=True, \
                                         filename='{}seq_train_post_{:d}.pdf'.format(self.results_dir, i + 1))
 
@@ -592,24 +599,24 @@ class Delfi():
             # Generate posterior samples
             if plot==True:
                 print('Sampling approximate posterior...')
-                self.posterior_samples = self.emcee_sample(log_likelihood = lambda x: self.log_posterior_stacked(x, self.data)[0],
-                                                           x0=[self.posterior_samples[-i,:] for i in range(self.nwalkers)], \
-                                                           main_chain=self.posterior_chain_length)
+                x0 = [self.posterior_samples[-i,:] for i in range(self.nwalkers)]
+                self.posterior_samples, self.posterior_weights, self.log_posterior_values = \
+                    self.emcee_sample(x0=x0, main_chain=self.posterior_chain_length)
                 print('Done.')
 
                 # Plot the posterior
-                self.triangle_plot([self.posterior_samples], \
+                self.triangle_plot([self.posterior_samples], weights=[self.posterior_weights], \
                                     savefig=True, \
                                     filename='{}fisher_train_post.pdf'.format(self.results_dir))
 
     def triangle_plot(self, samples = None, weights = None, savefig = False, filename = None):
-
         # Set samples to the posterior samples by default
         if samples is None:
-            samples = [self.posterior_samples]
-        mc_samples = [MCSamples(samples=s, weights = None, names = self.names, labels = self.labels, ranges = self.ranges) for s in samples]
+            samples = self.posterior_samples
+        mc_samples = [MCSamples(samples=s, weights=weights[i], names=self.names, labels=self.labels, ranges=self.ranges) for i, s in enumerate(samples)]
 
         # Triangle plot
+        plt.close()
         with mpl.rc_context():
             g = plots.getSubplotPlotter(width_inch = 12)
             g.settings.figure_legend_frame = False
@@ -623,11 +630,10 @@ class Delfi():
                     ax = g.subplots[i,j]
                     xtl = ax.get_xticklabels()
                     ax.set_xticklabels(xtl, rotation=45)
-            plt.tight_layout()
             plt.subplots_adjust(hspace=0, wspace=0)
-            
+
             if savefig:
-                plt.savefig(filename)
+                plt.savefig(filename, bbox_inches='tight')
             if self.show_plot:
                 plt.show()
             else:
