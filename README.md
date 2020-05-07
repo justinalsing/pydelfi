@@ -23,9 +23,13 @@ or alternatively, pip install the requirements and then clone the repo and run `
 
 **Tensorflow 2**
 
-The Tensorflow 2 version can be found on the `tf2` branch and can be installed as follows:
+The Tensorflow 2 version can be found on the `tf2-tom` branch and can be installed as follows (we reccommend you do this inside a virtual environment as described below):
 
 ```
+mkdir ~/envs
+virtualenv ~/envs/pydelfi
+source ~/envs/pydelfi/bin/activate
+pip install jupyter
 python -m ipykernel install --user --name=tf-nightly
 git clone https://github.com/justinalsing/pydelfi.git
 cd pydelfi
@@ -41,7 +45,7 @@ PKGDIR=$(mktemp -d)
 pip install --upgrade $PKGDIR/*.whl
 ```
 
-The Tensorflow 2 version depends on some modifications (by Tom Charnock) to tensorflow probability (tfp); these are expected to get integrated into tensorflow probability proper imminently, which will make installing the Tensorflow 2 version of pydelfi considerably easier. Until then though you'll have to pull and install Tom's version of tfp as described above. We reccommend you do this inside a virtual environment.
+The Tensorflow 2 version depends on some modifications (by Tom Charnock) to tensorflow probability (tfp); these are expected to get integrated into tensorflow probability proper imminently, which will make installing the Tensorflow 2 version of pydelfi considerably easier. Until then though you'll have to pull and install Tom's version of tfp as described above.
 
 **Documentation and tutorials:** 
 
