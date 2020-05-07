@@ -339,7 +339,7 @@ class Delfi():
 
         # Set up default x0
         if x0 is None:
-            x0 = [self.posterior_samples[-i,:] for i in range(self.nwalkers)]
+            x0 = self.posterior_samples[np.random.choice(np.arange(len(self.posterior_samples)), p=self.posterior_weights.astype(np.float32)/sum(self.posterior_weights), replace=False, size=self.nwalkers),:]
 
         # Set up the sampler
         sampler = emcee.EnsembleSampler(self.nwalkers, self.npar, log_target)
