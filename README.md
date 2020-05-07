@@ -6,7 +6,7 @@
 
 The code is in python3. There is a Tensorflow 1 (most stable) and Tensorflow 2 version that can be installed as follows:<br>
 
-**Tensorflow 1**
+**Tensorflow 1 (stable)**
 
 This can be found on the master branch and has the following dependencies:<br>
 [tensorflow](https://www.tensorflow.org) (<=1.15) <br> 
