@@ -21,7 +21,7 @@ You can install the requirements and this package with,
 pip install pip install tensorflow==1.15
 pip install git+https://github.com/justinalsing/pydelfi.git
 ```
-(`tensorflow-gpu==1.15` for GPU acceletation instead of `tensorflow==1.15`)
+(`tensorflow-gpu==1.15` for GPU acceleration instead of `tensorflow==1.15`)
 
 or alternatively, pip install the requirements and then clone the repo and run `python setup.py install`
 
