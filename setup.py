@@ -16,5 +16,9 @@ setup(name='pydelfi',
           "mpi4py",
           "scipy",
           "tqdm"
-      ])
+      ],
+      extras_require={
+        "tf": ["tensorflow>=v1.1.0, <v2.0"],
+        "tf_gpu": ["tensorflow-gpu>=v1.1.0, <v2.0"]}
+     )
 
