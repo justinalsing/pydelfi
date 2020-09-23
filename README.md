@@ -27,29 +27,16 @@ or alternatively, pip install the requirements and then clone the repo and run `
 
 **Tensorflow 2**
 
-The Tensorflow 2 version can be found on the `tf2-tom` branch and can be installed as follows (we reccommend you do this inside a virtual environment as described below):
+The Tensorflow 2 version can be found on the `tf2` branch and can be installed as follows (we reccommend you do this inside a virtual environment as described below):
 
 ```
 mkdir ~/envs
 virtualenv ~/envs/pydelfi
 source ~/envs/pydelfi/bin/activate
-pip install jupyter
-python -m ipykernel install --user --name=tf-nightly
-git clone https://github.com/justinalsing/pydelfi.git
-cd pydelfi
-git checkout tf2-tom
-pip install -e .
-cd ..
-git clone https://github.com/tomcharnock/probability.git
-cd probability
-git checkout conditionalmaf-master
-bazel build --copt=-O3 --copt=-march=native :pip_pkg
-PKGDIR=$(mktemp -d)
-./bazel-bin/pip_pkg $PKGDIR
-pip install --upgrade $PKGDIR/*.whl
+pip install git+https://github.com/justinalsing/pydelfi.git@tf2
 ```
 
-The Tensorflow 2 version depends on some modifications (by Tom Charnock) to tensorflow probability (tfp); these are expected to get integrated into tensorflow probability proper imminently, which will make installing the Tensorflow 2 version of pydelfi considerably easier. Until then though you'll have to pull and install Tom's version of tfp as described above.
+Note: the Mixture Density Networks in the tf2 version are not performing as well as in the tf1 version (but the Masked Autoregressive Flows are fine). We are getting ot the bottom of this, and also working on expanding the suite of conditional density estimators in a coming update. Watch this space.
 
 **Documentation and tutorials:** 
 
