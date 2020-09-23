@@ -10,10 +10,11 @@ setup(name='pydelfi',
       url='https://github.com/justinalsing/pydelfi',
       packages=find_packages(),
       install_requires=[
-          "tf-nightly==2.2.0-dev20200412",
           "getdist>=1.1.0",
           "emcee>=3.0.2",
           "scipy>=1.4.1",
           "tqdm>=4.41.1",
-          "numpy>=1.18.1"
+          "numpy<1.19.0,>=1.16.0",
+          "tfp-nightly",
+          "tfp-nightly"
       ])
