@@ -18,7 +18,7 @@ This can be found on the master branch and has the following dependencies:<br>
 You can install the requirements and this package with,
 
 ```
-pip install pip install tensorflow==1.15
+pip install tensorflow==1.15
 pip install git+https://github.com/justinalsing/pydelfi.git
 ```
 (`tensorflow-gpu==1.15` for GPU acceleration instead of `tensorflow==1.15`)
