@@ -4,7 +4,7 @@
 
 **Installation:**
 
-The code is in python3. There is a Tensorflow 1 (most stable) and Tensorflow 2 version that can be installed as follows:<br>
+The code is in python3. There is a Tensorflow 1 (most stable, see below) and Tensorflow 2 version that can be installed as follows:<br>
 
 **Tensorflow 1 (stable)**
 
@@ -27,7 +27,7 @@ or alternatively, pip install the requirements and then clone the repo and run `
 
 **Tensorflow 2**
 
-The Tensorflow 2 version can be found on the `tf2` branch and can be installed as follows. We reccommend you do the install inside a virtual environment to keep version conflicts under control, ie., 
+The Tensorflow 2 version can be found on the `tf2-tom` branch and can be installed as follows. We reccommend you do the install inside a virtual environment to keep version conflicts under control, ie., 
 
 ```
 mkdir ~/envs
@@ -38,7 +38,7 @@ source ~/envs/pydelfi/bin/activate
 Followed by a pip install of pydelfi:
 
 ```
-pip install git+https://github.com/justinalsing/pydelfi.git@tf2
+pip install git+https://github.com/justinalsing/pydelfi.git@tf2-tom
 ```
 
 Note: the Mixture Density Networks (MDN) in the tf2 version are currently not performing as well as in the tf1 version (but the Masked Autoregressive Flows are fine). We are getting ot the bottom of this, and also working on expanding the suite of conditional density estimators in a coming update. Watch this space.
