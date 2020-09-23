@@ -433,7 +433,7 @@ def ConditionalMaskedAutoregressiveFlow(
         event_shape=[n_data])
     put_conditional = lambda conditional : dict(
         zip(["MADE_{}".format(i) for i in range(n_mades)], 
-            [{"conditional": tf.convert_to_tensor(conditional, dtype=tf.float32)} for i in range(n_mades)]))
+            [{"conditional_input": tf.convert_to_tensor(conditional, dtype=tf.float32)} for i in range(n_mades)]))
     distribution.conditional_log_prob = lambda a, conditional : distribution.log_prob(a, bijector_kwargs=put_conditional(conditional))
     distribution.conditional_prob = lambda a, conditional : distribution.prob(a, bijector_kwargs=put_conditional(conditional))
     distribution.conditional_sample = lambda a, conditional : distribution.sample(a, bijector_kwargs=put_conditional(conditional))
