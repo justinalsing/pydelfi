@@ -415,7 +415,7 @@ def ConditionalMaskedAutoregressiveFlow(
                     activation=activation,
                     event_shape=[n_data],
                     conditional=True,
-                    conditional_shape=[n_parameters],
+                    conditional_event_shape=[n_parameters],
                     conditional_input_layers=all_layers,
                     input_order=input_order,
                     kernel_initializer=kernel_initializer,
