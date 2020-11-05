@@ -411,7 +411,7 @@ class Delfi():
                 self.posterior_samples, self.posterior_weights, self.log_posterior_values = self.emcee_sample(x0=x0, main_chain=self.posterior_chain_length)
 
                 # Save posterior samples to file
-                f = open('{}posterior_samples_0.dat'.format(self.results_dir), 'w')
+                f = open(self.results_dir + "/" + 'posterior_samples_0.dat', 'w')
                 np.savetxt(f, self.posterior_samples)
                 f.close()
 
@@ -420,7 +420,7 @@ class Delfi():
                 # If plot == True, plot the current posterior estimate
                 if plot == True:
                     self.triangle_plot([self.posterior_samples], weights=[self.posterior_weights], savefig=True, \
-                                    filename='{}seq_train_post_0.pdf'.format(self.results_dir))
+                                    filename=self.results_dir + "/" + 'seq_train_post_0.pdf')
 
             # Save attributes if save == True
             if self.save is True:
@@ -480,7 +480,7 @@ class Delfi():
                         self.emcee_sample(x0=x0, main_chain=self.posterior_chain_length)
 
                     # Save posterior samples to file
-                    f = open('{}posterior_samples_{:d}.dat'.format(self.results_dir, i+1), 'w')
+                    f = open(self.results_dir + "/" + 'posterior_samples_{:d}.dat'.format(i+1), 'w')
                     np.savetxt(f, self.posterior_samples)
                     f.close()
 
@@ -491,12 +491,16 @@ class Delfi():
                         # Plot the posterior
                         self.triangle_plot([self.posterior_samples], weights=[self.posterior_weights], \
                                         savefig=True, \
-                                        filename='{}seq_train_post_{:d}.pdf'.format(self.results_dir, i + 1))
+                                        filename=self.results_dir + "/" + 'seq_train_post_{:d}.pdf'.format(i + 1))
 
                 # Plot training convergence
                 if plot == True:
                     # Plot the training loss convergence
-                    self.sequential_training_plot(savefig=True, filename='{}seq_train_loss.pdf'.format(self.results_dir))
+                    self.sequential_training_plot(savefig=True, filename=self.results_dir + "/" + 'seq_train_loss.pdf')
+
+                # Save attributes if save == True
+                if self.save is True:
+                    self.saver()
 
     def load_simulations(self, data_batch, theta_batch):
 
@@ -564,7 +568,7 @@ class Delfi():
                 # Plot the posterior
                 self.triangle_plot([self.posterior_samples], weights=[self.posterior_weights], \
                                     savefig=True, \
-                                    filename='{}fisher_train_post.pdf'.format(self.results_dir))
+                                    filename=self.results_dir + "/" + 'fisher_train_post.pdf')
 
             # save current state if save=True
             if self.save is True:
