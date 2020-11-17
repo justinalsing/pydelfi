@@ -629,7 +629,7 @@ class Delfi():
                 for j in range(0, i+1):
                     ax = g.subplots[i,j]
                     xtl = ax.get_xticklabels()
-                    ax.set_xticklabels(xtl, rotation=45)
+                    #ax.set_xticklabels(xtl, rotation=45)
             plt.subplots_adjust(hspace=0, wspace=0)
 
             if savefig:
