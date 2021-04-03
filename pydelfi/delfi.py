@@ -593,7 +593,7 @@ class Delfi():
                 x0 = self.posterior_samples[np.random.choice(np.arange(len(self.posterior_samples)), p=self.posterior_weights.astype(np.float32)/sum(self.posterior_weights), replace=False, size=2*self.nwalkers),:]
                 #self.posterior_samples, self.posterior_weights, self.log_posterior_values = \
                 #    self.emcee_sample(x0=x0, main_chain=self.posterior_chain_length)
-                self.posterior_samples = affine_sample(log_target=self.weighted_log_posterior, main_chain=self.posterior_chain_length, x0=x0)
+                self.posterior_samples = self.affine_sample(log_target=self.weighted_log_posterior, main_chain=self.posterior_chain_length, x0=x0)
 
                 print('Done.')
 
