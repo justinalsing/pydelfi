@@ -1,7 +1,8 @@
 import tensorflow as tf
 import getdist
 from getdist import plots, MCSamples
-import emcee
+#import emcee
+import affine
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 import numpy as np
@@ -28,7 +29,7 @@ class Delfi():
                  save=True, restore=False, **kwargs):
 
         # Data
-        self.data = data
+        self.data = data.astype(np.float32)
         self.D = len(data)
 
         # Prior
@@ -88,14 +89,17 @@ class Delfi():
             self.theta_shift = np.zeros(self.npar).astype(np.float32)
             self.theta_scale = np.ones(self.npar).astype(np.float32)
         elif input_normalization is "fisher":
-            self.data_shift = self.theta_fiducial
-            self.data_scale = self.fisher_errors
-            self.theta_shift = self.theta_fiducial
-            self.theta_scale = self.fisher_errors
+            self.data_shift = self.theta_fiducial.astype(np.float32)
+            self.data_scale = self.fisher_errors.astype(np.float32)
+            self.theta_shift = self.theta_fiducial.astype(np.float32)
+            self.theta_scale = self.fisher_errors.astype(np.float32)
         elif input_normalization is "auto":
             self.input_normalization_set = False
         else:
-            self.data_shift, self.data_scale, self.theta_shift, self.theta_scale = input_normalization
+            self.data_shift = input_normalization[0].astype(np.float32)
+            self.data_scale = input_normalization[1].astype(np.float32)
+            self.theta_shift = input_normalization[2].astype(np.float32)
+            self.theta_scale = input_normalization[3].astype(np.float32)
 
         # Training data [initialize empty]
         self.theta_realizations = np.array([], dtype=np.float32).reshape(0,self.npar)
@@ -118,8 +122,8 @@ class Delfi():
             self.proposal_samples = self.prior.sample(self.nwalkers*self.proposal_chain_length).numpy()
         self.posterior_weights = (np.ones(len(self.posterior_samples))*1.0/len(self.posterior_samples)).astype(np.float32)
         self.proposal_weights = (np.ones(len(self.proposal_samples))*1.0/len(self.proposal_samples)).astype(np.float32)
-        self.log_posterior_values = (np.ones(len(self.posterior_samples))*1.0/len(self.posterior_samples)).astype(np.float32)
-        self.log_proposal_values = (np.ones(len(self.proposal_samples))*1.0/len(self.proposal_samples)).astype(np.float32)
+        self.log_posterior_values = None#(np.ones(len(self.posterior_samples))*1.0/len(self.posterior_samples)).astype(np.float32)
+        self.log_proposal_values = None#(np.ones(len(self.proposal_samples))*1.0/len(self.proposal_samples)).astype(np.float32)
 
         # Parameter names and ranges for plotting with GetDist
         self.names = param_names
@@ -308,51 +312,73 @@ class Delfi():
     # weighted log posterior
     def weighted_log_posterior(self, theta):
 
-        lnP = self.NDEs.weighted_log_prob((self.data.astype(np.float32) - self.data_shift)/self.data_scale, conditional=(theta.astype(np.float32) - self.theta_shift)/self.theta_scale ).numpy() + self.prior.log_prob(theta.astype(np.float32)).numpy()
+        #lnP = self.NDEs.weighted_log_prob((self.data.astype(np.float32) - self.data_shift)/self.data_scale, conditional=(theta.astype(np.float32) - self.theta_shift)/self.theta_scale ).numpy() + self.prior.log_prob(theta.astype(np.float32)).numpy()
 
-        if np.isnan(lnP):
-            return -1e100
-        else:
-            return lnP
+        #if np.isnan(lnP):
+        #    return -1e100
+        #else:
+        #    return lnP
+        return self.NDEs.weighted_log_prob((self.data - self.data_shift)/self.data_scale, conditional=(theta - self.theta_shift)/self.theta_scale ) + self.prior.log_prob(theta)
 
     # weighted log posterior
     def log_proposal(self, theta):
 
-        lnP = 0.5*self.NDEs.weighted_log_prob((self.data.astype(np.float32) - self.data_shift)/self.data_scale, conditional=(theta.astype(np.float32) - self.theta_shift)/self.theta_scale ).numpy() + self.prior.log_prob(theta.astype(np.float32)).numpy()
+        #lnP = 0.5*self.NDEs.weighted_log_prob((self.data.astype(np.float32) - self.data_shift)/self.data_scale, conditional=(theta.astype(np.float32) - self.theta_shift)/self.theta_scale ).numpy() + self.prior.log_prob(theta.astype(np.float32)).numpy()
 
-        if np.isnan(lnP):
-            return -1e100
-        else:
-            return lnP
+        #if np.isnan(lnP):
+        #    return -1e100
+        #else:
+        #    return lnP
+        return 0.5*self.NDEs.weighted_log_prob((self.data - self.data_shift)/self.data_scale, conditional=(theta - self.theta_shift)/self.theta_scale ) + self.prior.log_prob(theta)
+
 
     # EMCEE sampler
-    def emcee_sample(self, log_target=None, x0=None, burn_in_chain=100, main_chain=1000):
+    #def emcee_sample(self, log_target=None, x0=None, burn_in_chain=100, main_chain=1000):
 
+        # default log target
+    #    if log_target is None:
+    #        log_target = self.weighted_log_posterior
+
+        # Set up default x0
+    #    if x0 is None:
+    #        x0 = self.posterior_samples[np.random.choice(np.arange(len(self.posterior_samples)), p=self.posterior_weights.astype(np.float32)/sum(self.posterior_weights), replace=False, size=self.nwalkers),:]
+
+        # Set up the sampler
+    #    sampler = emcee.EnsembleSampler(self.nwalkers, self.npar, log_target)
+
+        # Burn-in chain
+    #    state = sampler.run_mcmc(x0, burn_in_chain)
+    #    sampler.reset()
+
+        # Main chain
+    #    sampler.run_mcmc(state, main_chain)
+
+        # pull out the unique samples and weights
+    #    chain, weights = np.unique(sampler.get_chain(flat=True), axis=0, return_counts=True)
+
+        # pull out the log probabilities
+    #    log_prob, _ = np.unique(sampler.get_log_prob(flat=True), axis=0, return_counts=True)
+
+    #    return chain, weights, log_prob
+
+    # run affine sampler
+    def affine_sample(log_target=None, x0=None, burn_in_chain=100, main_chain=1000):
+        
         # default log target
         if log_target is None:
             log_target = self.weighted_log_posterior
 
         # Set up default x0
         if x0 is None:
-            x0 = self.posterior_samples[np.random.choice(np.arange(len(self.posterior_samples)), p=self.posterior_weights.astype(np.float32)/sum(self.posterior_weights), replace=False, size=self.nwalkers),:]
+            x0 = self.posterior_samples[np.random.choice(np.arange(len(self.posterior_samples)), p=self.posterior_weights.astype(np.float32)/sum(self.posterior_weights), replace=False, size=2*self.nwalkers),:]
 
-        # Set up the sampler
-        sampler = emcee.EnsembleSampler(self.nwalkers, self.npar, log_target)
+        # burn-in samples
+        chain = affine.sample(log_target, self.npar, self.n_walkers, burn_in_chain, x0[0:self.n_walkers,:], x0[self.n_walkers:,:])
 
-        # Burn-in chain
-        state = sampler.run_mcmc(x0, burn_in_chain)
-        sampler.reset()
+        # main chain
+        chain = affine.sample(log_target, self.npar, self.n_walkers, main_chain, chain[-1, 0:self.n_walkers,:], chain[-1,self.n_walkers:,:])
 
-        # Main chain
-        sampler.run_mcmc(state, main_chain)
-
-        # pull out the unique samples and weights
-        chain, weights = np.unique(sampler.get_chain(flat=True), axis=0, return_counts=True)
-
-        # pull out the log probabilities
-        log_prob, _ = np.unique(sampler.get_log_prob(flat=True), axis=0, return_counts=True)
-
-        return chain, weights, log_prob
+        return chain.numpy().reshape(-1, chain.shape[-1]).astype(np.float32)
 
     def sequential_training(self, simulator, compressor, n_initial, n_batch, n_populations, proposal = None, \
                             simulator_args = None, compressor_args = None, safety = 5, plot = True, batch_size = 100, \
@@ -406,10 +432,10 @@ class Delfi():
             # Generate posterior samples
             if save_intermediate_posteriors:
                 print('Sampling approximate posterior...')
-                #x0 = [self.posterior_samples[-i,:] for i in range(self.nwalkers)]
-                x0 = self.posterior_samples[np.random.choice(np.arange(len(self.posterior_samples)), p=self.posterior_weights.astype(np.float32)/sum(self.posterior_weights), replace=False, size=self.nwalkers),:]
-                self.posterior_samples, self.posterior_weights, self.log_posterior_values = self.emcee_sample(x0=x0, main_chain=self.posterior_chain_length)
-
+                x0 = self.posterior_samples[np.random.choice(np.arange(len(self.posterior_samples)), p=self.posterior_weights.astype(np.float32)/sum(self.posterior_weights), replace=False, size=2*self.nwalkers),:]
+                #self.posterior_samples, self.posterior_weights, self.log_posterior_values = self.emcee_sample(x0=x0, main_chain=self.posterior_chain_length)
+                self.posterior_samples = affine_sample(log_target=self.weighted_log_posterior, main_chain=self.posterior_chain_length, x0=x0)
+                
                 # Save posterior samples to file
                 f = open(self.results_dir + "/" + 'posterior_samples_0.dat', 'w')
                 np.savetxt(f, self.posterior_samples)
@@ -440,12 +466,14 @@ class Delfi():
                 # Sample the current posterior approximation
                 print('Sampling proposal density...')
                 #x0 = [self.proposal_samples[-j,:] for j in range(self.nwalkers)]
-                x0 = self.proposal_samples[np.random.choice(np.arange(len(self.proposal_samples)), p=self.proposal_weights.astype(np.float32)/sum(self.proposal_weights), replace=False, size=self.nwalkers),:]
+                x0 = self.proposal_samples[np.random.choice(np.arange(len(self.proposal_samples)), p=self.proposal_weights.astype(np.float32)/sum(self.proposal_weights), replace=False, size=2*self.nwalkers),:]
 
-                self.proposal_samples, self.proposal_weights, self.log_proposal_values = \
-                    self.emcee_sample(log_target = self.log_proposal,
-                                      x0=x0,
-                                      main_chain=self.proposal_chain_length)
+                #self.proposal_samples, self.proposal_weights, self.log_proposal_values = \
+                #    self.emcee_sample(log_target = self.log_proposal,
+                #                      x0=x0,
+                #                      main_chain=self.proposal_chain_length)
+                self.proposal_samples = affine_sample(log_target=self.log_proposal, main_chain=self.proposal_chain_length, x0=x0)
+
                 theta_batch = self.proposal_samples[-safety * n_batch:,:]
                 print('Done.')
 
@@ -475,9 +503,11 @@ class Delfi():
                 # Generate posterior samples
                 if save_intermediate_posteriors:
                     print('Sampling approximate posterior...')
-                    x0 = self.posterior_samples[np.random.choice(np.arange(len(self.posterior_samples)), p=self.posterior_weights.astype(np.float32)/sum(self.posterior_weights), replace=False, size=self.nwalkers),:]
-                    self.posterior_samples, self.posterior_weights, self.log_posterior_values = \
-                        self.emcee_sample(x0=x0, main_chain=self.posterior_chain_length)
+                    x0 = self.posterior_samples[np.random.choice(np.arange(len(self.posterior_samples)), p=self.posterior_weights.astype(np.float32)/sum(self.posterior_weights), replace=False, size=2*self.nwalkers),:]
+                    #self.posterior_samples, self.posterior_weights, self.log_posterior_values = \
+                    #    self.emcee_sample(x0=x0, main_chain=self.posterior_chain_length)
+                    self.posterior_samples = affine_sample(log_target=self.weighted_log_posterior, main_chain=self.posterior_chain_length, x0=x0)
+
 
                     # Save posterior samples to file
                     f = open(self.results_dir + "/" + 'posterior_samples_{:d}.dat'.format(i+1), 'w')
@@ -560,9 +590,11 @@ class Delfi():
             # Generate posterior samples
             if plot==True:
                 print('Sampling approximate posterior...')
-                x0 = self.posterior_samples[np.random.choice(np.arange(len(self.posterior_samples)), p=self.posterior_weights.astype(np.float32)/sum(self.posterior_weights), replace=False, size=self.nwalkers),:]
-                self.posterior_samples, self.posterior_weights, self.log_posterior_values = \
-                    self.emcee_sample(x0=x0, main_chain=self.posterior_chain_length)
+                x0 = self.posterior_samples[np.random.choice(np.arange(len(self.posterior_samples)), p=self.posterior_weights.astype(np.float32)/sum(self.posterior_weights), replace=False, size=2*self.nwalkers),:]
+                #self.posterior_samples, self.posterior_weights, self.log_posterior_values = \
+                #    self.emcee_sample(x0=x0, main_chain=self.posterior_chain_length)
+                self.posterior_samples = affine_sample(log_target=self.weighted_log_posterior, main_chain=self.posterior_chain_length, x0=x0)
+
                 print('Done.')
 
                 # Plot the posterior
