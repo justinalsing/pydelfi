@@ -2,7 +2,6 @@ import tensorflow as tf
 import getdist
 from getdist import plots, MCSamples
 #import emcee
-import affine
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 import numpy as np
@@ -15,6 +14,7 @@ tfd = tfp.distributions
 
 # pydelfi imports
 from pydelfi import ndes
+from pydelfi import affine
 
 __version__ = "v0.2"
 __author__ = "Justin Alsing, Tom Charnock and Stephen Feeney"
