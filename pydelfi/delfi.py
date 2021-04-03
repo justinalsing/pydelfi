@@ -115,11 +115,11 @@ class Delfi():
 
         # Initialize MCMC chains for posterior and proposal
         if self.asymptotic_posterior is not None:
-            self.posterior_samples = self.asymptotic_posterior.sample(self.nwalkers*self.posterior_chain_length).numpy()
-            self.proposal_samples = self.asymptotic_posterior.sample(self.nwalkers*self.proposal_chain_length).numpy()
+            self.posterior_samples = self.asymptotic_posterior.sample(2*self.nwalkers*self.posterior_chain_length).numpy()
+            self.proposal_samples = self.asymptotic_posterior.sample(2*self.nwalkers*self.proposal_chain_length).numpy()
         else:
-            self.posterior_samples = self.prior.sample(self.nwalkers*self.posterior_chain_length).numpy()
-            self.proposal_samples = self.prior.sample(self.nwalkers*self.proposal_chain_length).numpy()
+            self.posterior_samples = self.prior.sample(2*self.nwalkers*self.posterior_chain_length).numpy()
+            self.proposal_samples = self.prior.sample(2*self.nwalkers*self.proposal_chain_length).numpy()
         self.posterior_weights = (np.ones(len(self.posterior_samples))*1.0/len(self.posterior_samples)).astype(np.float32)
         self.proposal_weights = (np.ones(len(self.proposal_samples))*1.0/len(self.proposal_samples)).astype(np.float32)
         self.log_posterior_values = None#(np.ones(len(self.posterior_samples))*1.0/len(self.posterior_samples)).astype(np.float32)
@@ -372,13 +372,10 @@ class Delfi():
         if x0 is None:
             x0 = self.posterior_samples[np.random.choice(np.arange(len(self.posterior_samples)), p=self.posterior_weights.astype(np.float32)/sum(self.posterior_weights), replace=False, size=2*self.nwalkers),:]
 
-        # burn-in samples
+        # run chain
         chain = affine.sample(log_target, self.npar, self.nwalkers, burn_in_chain, x0[0:self.nwalkers,:], x0[self.nwalkers:,:])
 
-        # main chain
-        chain = affine.sample(log_target, self.npar, self.nwalkers, main_chain, chain[-1, 0:self.nwalkers,:], chain[-1,self.nwalkers:,:])
-
-        return chain.numpy().reshape(-1, chain.shape[-1]).astype(np.float32)
+        return chain.numpy()[burn_in_chain:,:,:].reshape(-1, chain.shape[-1]).astype(np.float32)
 
     def sequential_training(self, simulator, compressor, n_initial, n_batch, n_populations, proposal = None, \
                             simulator_args = None, compressor_args = None, safety = 5, plot = True, batch_size = 100, \
