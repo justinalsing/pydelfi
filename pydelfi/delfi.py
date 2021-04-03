@@ -373,10 +373,10 @@ class Delfi():
             x0 = self.posterior_samples[np.random.choice(np.arange(len(self.posterior_samples)), p=self.posterior_weights.astype(np.float32)/sum(self.posterior_weights), replace=False, size=2*self.nwalkers),:]
 
         # burn-in samples
-        chain = affine.sample(log_target, self.npar, self.n_walkers, burn_in_chain, x0[0:self.n_walkers,:], x0[self.n_walkers:,:])
+        chain = affine.sample(log_target, self.npar, self.nwalkers, burn_in_chain, x0[0:self.nwalkers,:], x0[self.nwalkers:,:])
 
         # main chain
-        chain = affine.sample(log_target, self.npar, self.n_walkers, main_chain, chain[-1, 0:self.n_walkers,:], chain[-1,self.n_walkers:,:])
+        chain = affine.sample(log_target, self.npar, self.nwalkers, main_chain, chain[-1, 0:self.nwalkers,:], chain[-1,self.nwalkers:,:])
 
         return chain.numpy().reshape(-1, chain.shape[-1]).astype(np.float32)
 
