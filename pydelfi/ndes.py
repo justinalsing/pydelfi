@@ -41,7 +41,7 @@ class NDE():
         if optimiser_arguments is not None:
             self.optimiser = optimiser(optimiser_arguments)
         else:
-            self.optimiser = optimiser()
+            self.optimiser = optimiser
         super(NDE, self).__init__(**kwargs)
 
     @tf.function
@@ -579,8 +579,8 @@ class SinhArcSinhMADE(tf.keras.Model):
         # conditional functions
         self.conditional_log_prob = self.log_prob
         self.conditional_prob = self.prob
-        _ = self.conditional_log_prob(np.random.normal(0, 1, (1, n_data)),
-                                          conditional=np.random.normal(0, 1, (1, n_parameters)))
+        _ = self.conditional_log_prob(np.random.normal(0, 1, (1, n_data)).astype(np.float32),
+                                          conditional=np.random.normal(0, 1, (1, n_parameters)).astype(np.float32))
         
     # compute the parameters of the conditional SinhArcSinh distributions
     def call(self, x, conditional=None):
@@ -624,7 +624,7 @@ class SinhArcSinhMADE(tf.keras.Model):
     def prob(self, x, conditional=None):
                                                             
         # probability
-        return tf.exp(self.log_prob(x, conditional=y))
+        return tf.exp(self.log_prob(x, conditional=conditional))
 
 
 class TruncatedMultivariateNormalTriL():
