@@ -4,17 +4,8 @@ import numpy as np
 
 def sample(log_prob, n_params, n_walkers, n_steps, walkers1, walkers2):
 
-    # are we in a notebook or not?
-    try:
-        shell = get_ipython().__class__.__name__
-        if shell == 'ZMQInteractiveShell':
-            pbar = tqdm.tnrange(n_steps, desc="Sampling")  # Jupyter notebook or qtconsole
-        elif shell == 'TerminalInteractiveShell':
-            pbar = tqdm.trange(n_steps, desc="Sampling")  # Terminal running IPython
-        else:
-            pbar = tqdm.trange(n_steps, desc="Sampling")  # Other type (?)
-    except NameError:
-        ipbar = tqdm.trange(n_steps, desc="Sampling")
+    # progress-bar
+    pbar = tqdm(total=n_steps, desc="Sampling")  # Jupyter notebook or qtconsole
     
     # initialize current state
     current_state1 = tf.Variable(walkers1)
