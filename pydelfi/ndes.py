@@ -579,6 +579,8 @@ class SinhArcSinhMADE(tf.keras.Model):
         # conditional functions
         self.conditional_log_prob = self.log_prob
         self.conditional_prob = self.prob
+        _ = self.conditional_log_prob(np.random.normal(0, 1, (1, n_data)),
+                                          conditional=np.random.normal(0, 1, (1, n_parameters)))
         
     # compute the parameters of the conditional SinhArcSinh distributions
     def call(self, x, conditional=None):
