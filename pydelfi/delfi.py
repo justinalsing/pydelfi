@@ -362,7 +362,7 @@ class Delfi():
     #    return chain, weights, log_prob
 
     # run affine sampler
-    def affine_sample(log_target=None, x0=None, burn_in_chain=100, main_chain=1000):
+    def affine_sample(self, log_target=None, x0=None, burn_in_chain=100, main_chain=1000):
         
         # default log target
         if log_target is None:
@@ -434,7 +434,7 @@ class Delfi():
                 print('Sampling approximate posterior...')
                 x0 = self.posterior_samples[np.random.choice(np.arange(len(self.posterior_samples)), p=self.posterior_weights.astype(np.float32)/sum(self.posterior_weights), replace=False, size=2*self.nwalkers),:]
                 #self.posterior_samples, self.posterior_weights, self.log_posterior_values = self.emcee_sample(x0=x0, main_chain=self.posterior_chain_length)
-                self.posterior_samples = affine_sample(log_target=self.weighted_log_posterior, main_chain=self.posterior_chain_length, x0=x0)
+                self.posterior_samples = self.affine_sample(log_target=self.weighted_log_posterior, main_chain=self.posterior_chain_length, x0=x0)
                 
                 # Save posterior samples to file
                 f = open(self.results_dir + "/" + 'posterior_samples_0.dat', 'w')
@@ -472,7 +472,7 @@ class Delfi():
                 #    self.emcee_sample(log_target = self.log_proposal,
                 #                      x0=x0,
                 #                      main_chain=self.proposal_chain_length)
-                self.proposal_samples = affine_sample(log_target=self.log_proposal, main_chain=self.proposal_chain_length, x0=x0)
+                self.proposal_samples = self.affine_sample(log_target=self.log_proposal, main_chain=self.proposal_chain_length, x0=x0)
 
                 theta_batch = self.proposal_samples[-safety * n_batch:,:]
                 print('Done.')
@@ -506,7 +506,7 @@ class Delfi():
                     x0 = self.posterior_samples[np.random.choice(np.arange(len(self.posterior_samples)), p=self.posterior_weights.astype(np.float32)/sum(self.posterior_weights), replace=False, size=2*self.nwalkers),:]
                     #self.posterior_samples, self.posterior_weights, self.log_posterior_values = \
                     #    self.emcee_sample(x0=x0, main_chain=self.posterior_chain_length)
-                    self.posterior_samples = affine_sample(log_target=self.weighted_log_posterior, main_chain=self.posterior_chain_length, x0=x0)
+                    self.posterior_samples = self.affine_sample(log_target=self.weighted_log_posterior, main_chain=self.posterior_chain_length, x0=x0)
 
 
                     # Save posterior samples to file
