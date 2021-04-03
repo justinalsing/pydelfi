@@ -488,14 +488,17 @@ class MixtureDensityNetwork(tfd.Distribution):
                 activation=self.activation,
                 kernel_initializer=kernel_initializer)
             for layer, size in enumerate(self.architecture[:-1])])
+        
         model.add(
             tf.keras.layers.Dense(
                 tfp.layers.MixtureSameFamily.params_size(
                     self.n_components,
                     component_params_size=tfp.layers.MultivariateNormalTriL.params_size(self.n_data)),
                 kernel_initializer=kernel_initializer))
+        
         model.add(
             tfp.layers.MixtureSameFamily(self.n_components, tfp.layers.MultivariateNormalTriL(self.n_data)))
+        
         return model
 
     def log_prob(self, x, **kwargs):
@@ -536,9 +539,90 @@ class MixtureDensityNetwork(tfd.Distribution):
         return samples
 
 
+class SinhArcSinhMADE(tf.keras.Model):
+    
+    def __init__(self, n_parameters, n_data, n_hidden=[50,50], activation=tf.keras.layers.LeakyReLU(0.01), kernel_initializer=tf.keras.initializers.RandomNormal(mean=0.0, stddev=1e-5, seed=None), bias_initializer=tf.keras.initializers.RandomNormal(mean=0.0, stddev=1e-5, seed=None), input_order="random", all_layers=True):
+        
+        super(SinhArcSinhMADE, self).__init__()
+        
+        # pull out parameters
+        self.n_parameters = n_parameters
+        self.n_data = n_data
+        self.n_hidden = n_hidden
+        self.activation = activation
+        
+        # put conditional into all layers (default), or not?
+        if all_layers == True:
+            all_layers = "all_layers"
+        else:
+            all_layers = "first_layer"
+        
+        # constant for normal densities
+        self.halfln2pi = tf.cast(0.5 * tf.math.log(2 * np.pi), tf.float32)
+        
+        # build autoregressive network
+        self.autoregressive_network = tfb.AutoregressiveNetwork(
+                    params=4,
+                    hidden_units=n_hidden,
+                    activation=activation,
+                    event_shape=[n_data],
+                    conditional=True,
+                    conditional_event_shape=[n_parameters],
+                    conditional_input_layers=all_layers,
+                    input_order=input_order,
+                    kernel_initializer=kernel_initializer,
+                    bias_initializer=bias_initializer)
+        
+        # small number for regularizing things
+        self.epsilon = tf.cast(1e-20, tf.float32)
+        
+    # compute the parameters of the conditional SinhArcSinh distributions
+    def call(self, x, conditional=None):
+
+        # pull bijector parameters out of autoregressive network
+        mu_, logp_, logtau_, k_ = tf.split(self.autoregressive_network(x, conditional_input=conditional), [1, 1, 1, 1], axis=-1)
+        
+        # transform things to usual parameterization
+        sigma = tf.squeeze(tf.exp(-0.5*logp_), -1) # std-deviations
+        tau = tf.squeeze(tf.exp(logtau_), -1) # tailweights
+        mu = tf.squeeze(mu_, -1) # means
+        k = tf.squeeze(k_, -1) # skewnesses
+        m = 2. / tf.math.sinh(tau * (tf.math.asinh(2.) + k) ) # multipliers
+        
+        return mu, sigma, tau, k, m
+        
+    def log_prob(self, x, conditional=None):
+        
+        # pull bijector parameters out of autoregressive network
+        mu_, logp_, logtau_, k_ = tf.split(self.autoregressive_network(x, conditional_input=conditional), [1, 1, 1, 1], axis=-1)
+        
+        # transform things to usual parameterization
+        sigma = tf.squeeze(tf.exp(-0.5*logp_), -1) # std-deviations
+        tau = tf.squeeze(tf.exp(logtau_), -1) # tailweights
+        mu = tf.squeeze(mu_, -1) # means
+        k = tf.squeeze(k_, -1) # skewnesses
+        m = 2. / tf.math.sinh(tau * (tf.math.asinh(2.) + k) ) # multipliers
+        
+        # transform x to unit normal base random variates
+        u = tf.math.sinh((1./tau) * tf.math.asinh((x - mu)/(m * sigma)) - k )
+        
+        # log probability of unit normal random variates
+        lnN = tf.reduce_sum(-0.5 * u**2 - self.halfln2pi, axis=-1)
+        
+        # log jacobian term
+        lnJ = tf.math.reduce_sum(0.5 * tf.math.log(1. + u**2) - 0.5 * tf.math.log(1. + ((x - mu)/(m*sigma))**2) - tf.math.log(tf.math.abs(tau * m * sigma) + self.epsilon), axis=-1)
+                                                               
+        # total log probability
+        return lnN + lnJ
+    
+    def prob(self, x, conditional=None):
+                                                            
+        # probability
+        return tf.exp(self.log_prob(x, conditional=y))
+
+
 class TruncatedMultivariateNormalTriL():
  
-
 
     def __init__(self,
                loc,
