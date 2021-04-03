@@ -575,6 +575,10 @@ class SinhArcSinhMADE(tf.keras.Model):
         
         # small number for regularizing things
         self.epsilon = tf.cast(1e-20, tf.float32)
+
+        # conditional functions
+        self.conditional_log_prob = self.log_prob
+        self.conditional_prob = self.prob
         
     # compute the parameters of the conditional SinhArcSinh distributions
     def call(self, x, conditional=None):
