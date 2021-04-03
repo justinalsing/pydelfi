@@ -429,8 +429,9 @@ class Delfi():
             # Generate posterior samples
             if save_intermediate_posteriors:
                 print('Sampling approximate posterior...')
-                x0 = self.posterior_samples[np.random.choice(np.arange(len(self.posterior_samples)), p=self.posterior_weights.astype(np.float32)/sum(self.posterior_weights), replace=False, size=2*self.nwalkers),:]
+                #x0 = self.posterior_samples[np.random.choice(np.arange(len(self.posterior_samples)), p=self.posterior_weights.astype(np.float32)/sum(self.posterior_weights), replace=False, size=2*self.nwalkers),:]
                 #self.posterior_samples, self.posterior_weights, self.log_posterior_values = self.emcee_sample(x0=x0, main_chain=self.posterior_chain_length)
+                x0 = self.posterior_samples[-2*self.nwalkers:,:]
                 self.posterior_samples = self.affine_sample(log_target=self.weighted_log_posterior, main_chain=self.posterior_chain_length, x0=x0)
                 
                 # Save posterior samples to file
@@ -442,7 +443,7 @@ class Delfi():
 
                 # If plot == True, plot the current posterior estimate
                 if plot == True:
-                    self.triangle_plot([self.posterior_samples], weights=[self.posterior_weights], savefig=True, \
+                    self.triangle_plot([self.posterior_samples], weights=[None], savefig=True, \
                                     filename=self.results_dir + "/" + 'seq_train_post_0.pdf')
 
             # Save attributes if save == True
@@ -463,12 +464,13 @@ class Delfi():
                 # Sample the current posterior approximation
                 print('Sampling proposal density...')
                 #x0 = [self.proposal_samples[-j,:] for j in range(self.nwalkers)]
-                x0 = self.proposal_samples[np.random.choice(np.arange(len(self.proposal_samples)), p=self.proposal_weights.astype(np.float32)/sum(self.proposal_weights), replace=False, size=2*self.nwalkers),:]
+                #x0 = self.proposal_samples[np.random.choice(np.arange(len(self.proposal_samples)), p=self.proposal_weights.astype(np.float32)/sum(self.proposal_weights), replace=False, size=2*self.nwalkers),:]
 
                 #self.proposal_samples, self.proposal_weights, self.log_proposal_values = \
                 #    self.emcee_sample(log_target = self.log_proposal,
                 #                      x0=x0,
                 #                      main_chain=self.proposal_chain_length)
+                x0 = self.proposal_samples[-2*self.nwalkers:,:]
                 self.proposal_samples = self.affine_sample(log_target=self.log_proposal, main_chain=self.proposal_chain_length, x0=x0)
 
                 theta_batch = self.proposal_samples[-safety * n_batch:,:]
@@ -500,9 +502,10 @@ class Delfi():
                 # Generate posterior samples
                 if save_intermediate_posteriors:
                     print('Sampling approximate posterior...')
-                    x0 = self.posterior_samples[np.random.choice(np.arange(len(self.posterior_samples)), p=self.posterior_weights.astype(np.float32)/sum(self.posterior_weights), replace=False, size=2*self.nwalkers),:]
+                    #x0 = self.posterior_samples[np.random.choice(np.arange(len(self.posterior_samples)), p=self.posterior_weights.astype(np.float32)/sum(self.posterior_weights), replace=False, size=2*self.nwalkers),:]
                     #self.posterior_samples, self.posterior_weights, self.log_posterior_values = \
                     #    self.emcee_sample(x0=x0, main_chain=self.posterior_chain_length)
+                    x0 = self.posterior_samples[-2*self.nwalkers:,:]
                     self.posterior_samples = self.affine_sample(log_target=self.weighted_log_posterior, main_chain=self.posterior_chain_length, x0=x0)
 
 
@@ -516,7 +519,7 @@ class Delfi():
                     # If plot == True
                     if plot == True:
                         # Plot the posterior
-                        self.triangle_plot([self.posterior_samples], weights=[self.posterior_weights], \
+                        self.triangle_plot([self.posterior_samples], weights=[None], \
                                         savefig=True, \
                                         filename=self.results_dir + "/" + 'seq_train_post_{:d}.pdf'.format(i + 1))
 
@@ -587,15 +590,16 @@ class Delfi():
             # Generate posterior samples
             if plot==True:
                 print('Sampling approximate posterior...')
-                x0 = self.posterior_samples[np.random.choice(np.arange(len(self.posterior_samples)), p=self.posterior_weights.astype(np.float32)/sum(self.posterior_weights), replace=False, size=2*self.nwalkers),:]
+                #x0 = self.posterior_samples[np.random.choice(np.arange(len(self.posterior_samples)), p=self.posterior_weights.astype(np.float32)/sum(self.posterior_weights), replace=False, size=2*self.nwalkers),:]
                 #self.posterior_samples, self.posterior_weights, self.log_posterior_values = \
                 #    self.emcee_sample(x0=x0, main_chain=self.posterior_chain_length)
+                x0 = self.posterior_samples[-2*self.nwalkers:,:]
                 self.posterior_samples = self.affine_sample(log_target=self.weighted_log_posterior, main_chain=self.posterior_chain_length, x0=x0)
 
                 print('Done.')
 
                 # Plot the posterior
-                self.triangle_plot([self.posterior_samples], weights=[self.posterior_weights], \
+                self.triangle_plot([self.posterior_samples], weights=[None], \
                                     savefig=True, \
                                     filename=self.results_dir + "/" + 'fisher_train_post.pdf')
 
@@ -606,7 +610,7 @@ class Delfi():
     def triangle_plot(self, samples = None, weights = None, savefig = False, filename = None):
         # Set samples to the posterior samples by default
         if samples is None:
-            samples = self.posterior_samples
+            samples = [self.posterior_samples]
         mc_samples = [MCSamples(samples=s, weights=weights[i], names=self.names, labels=self.labels, ranges=self.ranges) for i, s in enumerate(samples)]
 
         # Triangle plot
