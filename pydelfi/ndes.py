@@ -307,7 +307,7 @@ class NDE():
     def weighted_prob(self, data, conditional=None, stack=None):
         if stack is None:
             stack = self.stack
-        return tf.reduce_sum(self.weighting, tf.multiply(self.prob(data, conditional=conditional, stack=stack)), axis=0)
+        return tf.reduce_sum(tf.multiply(self.weighting, self.prob(data, conditional=conditional, stack=stack)), axis=0)
 
     @tf.function
     def sample(self, n=None, conditional=None, stack=None):
