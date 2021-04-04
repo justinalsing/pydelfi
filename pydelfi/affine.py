@@ -76,6 +76,6 @@ def sample(log_prob, n_params, n_walkers, n_steps, walkers1, walkers2):
     # stack up the chain
     chain = tf.stack(chain, axis=0)
     
-    return chain
+    return chain[1:,:,:]
 
 
