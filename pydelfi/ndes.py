@@ -600,17 +600,14 @@ class SinhArcSinhMADE(tf.keras.Model):
     def log_prob(self, x, conditional=None):
         
         # pull bijector parameters out of autoregressive network
-        #mu_, logp_, logtau_, k_ = tf.split(self.autoregressive_network(x, conditional_input=conditional), [1, 1, 1, 1], axis=-1)
+        mu_, logp_, logtau_, k_ = tf.split(self.autoregressive_network(x, conditional_input=conditional), [1, 1, 1, 1], axis=-1)
         
         # transform things to usual parameterization
-        #sigma = tf.squeeze(tf.exp(-0.5*logp_), -1) # std-deviations
-        #tau = tf.squeeze(tf.exp(logtau_), -1) # tailweights
-        #mu = tf.squeeze(mu_, -1) # means
-        #k = tf.squeeze(k_, -1) # skewnesses
-        #m = 2. / tf.math.sinh(tau * (tf.math.asinh(2.) + k) ) # multipliers
-
-        # parameters
-        mu, sigma, tau, k, m = self.call(x, conditional=conditional)
+        sigma = tf.squeeze(tf.exp(-0.5*logp_), -1) # std-deviations
+        tau = tf.squeeze(tf.exp(logtau_), -1) # tailweights
+        mu = tf.squeeze(mu_, -1) # means
+        k = tf.squeeze(k_, -1) # skewnesses
+        m = 2. / tf.math.sinh(tau * (tf.math.asinh(2.) + k) ) # multipliers
         
         # transform x to unit normal base random variates
         u = tf.math.sinh((1./tau) * tf.math.asinh((x - mu)/(m * sigma)) - k )
