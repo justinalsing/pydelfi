@@ -370,7 +370,7 @@ class Delfi():
 
         # Set up default x0
         if x0 is None:
-            x0 = self.posterior_samples[np.random.choice(np.arange(len(self.posterior_samples)), p=self.posterior_weights.astype(np.float32)/sum(self.posterior_weights), replace=False, size=2*self.nwalkers),:]
+            x0 = self.posterior_samples[np.random.choice(np.arange(len(self.posterior_samples)), replace=False, size=2*self.nwalkers),:]
 
         # run chain
         chain = affine.sample(log_target, self.npar, self.nwalkers, burn_in_chain + main_chain, x0[0:self.nwalkers,:], x0[self.nwalkers:,:])

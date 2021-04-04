@@ -288,7 +288,7 @@ class NDE():
     def weighted_log_prob(self, data, conditional=None, stack=None):
         if stack is None:
             stack = self.stack
-        return tf.math.log(self.weighted_prob(data, conditional=conditional, stack=stack))
+        return tf.math.reduce_logsumexp(tf.add(self.log_prob(data, conditional=conditional, stack=stack), tf.math.log(self.weighting)), axis=0)
 
     @tf.function
     def prob(self, data, conditional=None, stack=None):
