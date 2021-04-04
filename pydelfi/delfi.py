@@ -29,7 +29,7 @@ class Delfi():
                  save=True, restore=False, **kwargs):
 
         # Data
-        self.data = data.astype(np.float32)
+        self.data = tf.convert_to_tensor(data.astype(np.float32), dtype=tf.float32)
         self.D = len(data)
 
         # Prior
@@ -84,22 +84,22 @@ class Delfi():
         # Re-scaling for inputs to NDE
         self.input_normalization = input_normalization
         if input_normalization is None:
-            self.data_shift = np.zeros(self.D).astype(np.float32)
-            self.data_scale = np.ones(self.D).astype(np.float32)
-            self.theta_shift = np.zeros(self.npar).astype(np.float32)
-            self.theta_scale = np.ones(self.npar).astype(np.float32)
+            self.data_shift = tf.convert_to_tensor(np.zeros(self.D).astype(np.float32), dtype=tf.float32)
+            self.data_scale = tf.convert_to_tensor(np.ones(self.D).astype(np.float32), dtype=tf.float32)
+            self.theta_shift = tf.convert_to_tensor(np.zeros(self.npar).astype(np.float32), dtype=tf.float32)
+            self.theta_scale = tf.convert_to_tensor(np.ones(self.npar).astype(np.float32), dtype=tf.float32)
         elif input_normalization is "fisher":
-            self.data_shift = self.theta_fiducial.astype(np.float32)
-            self.data_scale = self.fisher_errors.astype(np.float32)
-            self.theta_shift = self.theta_fiducial.astype(np.float32)
-            self.theta_scale = self.fisher_errors.astype(np.float32)
+            self.data_shift = tf.convert_to_tensor(self.theta_fiducial.astype(np.float32), dtype=tf.float32)
+            self.data_scale = tf.convert_to_tensor(self.fisher_errors.astype(np.float32), dtype=tf.float32)
+            self.theta_shift = tf.convert_to_tensor(self.theta_fiducial.astype(np.float32), dtype=tf.float32)
+            self.theta_scale = tf.convert_to_tensor(self.fisher_errors.astype(np.float32), dtype=tf.float32)
         elif input_normalization is "auto":
             self.input_normalization_set = False
         else:
-            self.data_shift = input_normalization[0].astype(np.float32)
-            self.data_scale = input_normalization[1].astype(np.float32)
-            self.theta_shift = input_normalization[2].astype(np.float32)
-            self.theta_scale = input_normalization[3].astype(np.float32)
+            self.data_shift = tf.convert_to_tensor(input_normalization[0].astype(np.float32), dtype=tf.float32)
+            self.data_scale = tf.convert_to_tensor(input_normalization[1].astype(np.float32), dtype=tf.float32)
+            self.theta_shift = tf.convert_to_tensor(input_normalization[2].astype(np.float32), dtype=tf.float32)
+            self.theta_scale = tf.convert_to_tensor(input_normalization[3].astype(np.float32), dtype=tf.float32)
 
         # Training data [initialize empty]
         self.theta_realizations = np.array([], dtype=np.float32).reshape(0,self.npar)
@@ -543,15 +543,15 @@ class Delfi():
 
         self.theta_realizations = np.concatenate([self.theta_realizations, theta_batch])
         self.data_realizations = np.concatenate([self.data_realizations, data_batch])
-        self.theta_train = (self.theta_realizations.astype(np.float32) - self.theta_shift)/self.theta_scale
-        self.data_train = (self.data_realizations.astype(np.float32) - self.data_shift)/self.data_scale
+        self.theta_train = tf.convert_to_tensor((self.theta_realizations.astype(np.float32) - self.theta_shift)/self.theta_scale, dtype=tf.float32)
+        self.data_train = tf.convert_to_tensor((self.data_realizations.astype(np.float32) - self.data_shift)/self.data_scale, dtype=tf.float32)
         self.n_sims += len(theta_batch)
 
     def add_simulations(self, data_batch, theta_batch):
         self.theta_realizations = np.concatenate([self.theta_realizations, theta_batch])
         self.data_realizations = np.concatenate([self.data_realizations, data_batch])
-        self.theta_train = (self.theta_realizations.astype(np.float32) - self.theta_shift)/self.theta_scale
-        self.data_train = (self.data_realizations.astype(np.float32) - self.data_shift)/self.data_scale
+        self.theta_train = tf.convert_to_tensor((self.theta_realizations.astype(np.float32) - self.theta_shift)/self.theta_scale, dtype=tf.float32)
+        self.data_train = tf.convert_to_tensor((self.data_realizations.astype(np.float32) - self.data_shift)/self.data_scale, dtype=tf.float32)
         self.n_sims += len(theta_batch)
 
     def fisher_pretraining(self, n_batch=5000, plot=True, batch_size=100, validation_split=0.1, epochs=1000, patience=20):
@@ -581,8 +581,8 @@ class Delfi():
             data_batch = np.array([theta + np.dot(L, np.random.normal(0, 1, self.npar)) for theta in theta_batch], dtype=np.float32)
 
             # Construct the initial training-set
-            fisher_theta_train = (theta_batch.astype(np.float32).reshape((3*n_batch, self.npar)) - self.theta_shift)/self.theta_scale
-            fisher_data_train = (data_batch.astype(np.float32).reshape((3*n_batch, self.npar)) - self.data_shift)/self.data_scale
+            fisher_theta_train = tf.convert_to_tensor((theta_batch.astype(np.float32).reshape((3*n_batch, self.npar)) - self.theta_shift)/self.theta_scale, dtype=tf.float32)
+            fisher_data_train = tf.convert_to_tensor((data_batch.astype(np.float32).reshape((3*n_batch, self.npar)) - self.data_shift)/self.data_scale, dtype=tf.float32)
 
             # Train the networks on these initial simulations
             self.train(training_data=[fisher_theta_train, fisher_data_train], f_val=validation_split, epochs=epochs, n_batch=batch_size, patience=patience)
