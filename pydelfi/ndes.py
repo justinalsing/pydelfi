@@ -282,7 +282,7 @@ class NDE():
         """
         return tf.stack([
             self.model[element].conditional_log_prob(data, conditional=conditional)
-            for element in stack], 0)
+            for element in stack], axis=-1)
 
     @tf.function
     def weighted_log_prob(self, data, conditional=None, stack=None):
@@ -301,15 +301,13 @@ class NDE():
         """
         return tf.stack([
             self.model[element].conditional_prob(data, conditional=conditional)
-            for element in stack], 0)
+            for element in stack], axis=-1)
 
     @tf.function
     def weighted_prob(self, data, conditional=None, stack=None):
         if stack is None:
             stack = self.stack
-        return tf.reduce_sum(
-            tf.multiply(self.weighting,
-                        self.prob(data, conditional=conditional, stack=stack)))
+        return tf.reduce_sum(tf.multiply(self.prob(data, conditional=conditional, stack=stack), self.weighting), axis=-1)
 
     @tf.function
     def sample(self, n=None, conditional=None, stack=None):
@@ -583,6 +581,7 @@ class SinhArcSinhMADE(tf.keras.Model):
                                           conditional=np.random.normal(0, 1, (1, n_parameters)).astype(np.float32))
         
     # compute the parameters of the conditional SinhArcSinh distributions
+    @tf.function
     def call(self, x, conditional=None):
 
         # pull bijector parameters out of autoregressive network
@@ -597,17 +596,21 @@ class SinhArcSinhMADE(tf.keras.Model):
         
         return mu, sigma, tau, k, m
         
+    @tf.function
     def log_prob(self, x, conditional=None):
         
         # pull bijector parameters out of autoregressive network
-        mu_, logp_, logtau_, k_ = tf.split(self.autoregressive_network(x, conditional_input=conditional), [1, 1, 1, 1], axis=-1)
+        #mu_, logp_, logtau_, k_ = tf.split(self.autoregressive_network(x, conditional_input=conditional), [1, 1, 1, 1], axis=-1)
         
         # transform things to usual parameterization
-        sigma = tf.squeeze(tf.exp(-0.5*logp_), -1) # std-deviations
-        tau = tf.squeeze(tf.exp(logtau_), -1) # tailweights
-        mu = tf.squeeze(mu_, -1) # means
-        k = tf.squeeze(k_, -1) # skewnesses
-        m = 2. / tf.math.sinh(tau * (tf.math.asinh(2.) + k) ) # multipliers
+        #sigma = tf.squeeze(tf.exp(-0.5*logp_), -1) # std-deviations
+        #tau = tf.squeeze(tf.exp(logtau_), -1) # tailweights
+        #mu = tf.squeeze(mu_, -1) # means
+        #k = tf.squeeze(k_, -1) # skewnesses
+        #m = 2. / tf.math.sinh(tau * (tf.math.asinh(2.) + k) ) # multipliers
+
+        # parameters
+        mu, sigma, tau, k, m = self.call(x, conditional=conditional)
         
         # transform x to unit normal base random variates
         u = tf.math.sinh((1./tau) * tf.math.asinh((x - mu)/(m * sigma)) - k )
@@ -620,7 +623,8 @@ class SinhArcSinhMADE(tf.keras.Model):
                                                                
         # total log probability
         return lnN + lnJ
-    
+        
+    @tf.function
     def prob(self, x, conditional=None):
                                                             
         # probability
