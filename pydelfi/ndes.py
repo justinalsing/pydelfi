@@ -282,7 +282,7 @@ class NDE():
         """
         return tf.stack([
             self.model[element].conditional_log_prob(data, conditional=conditional)
-            for element in stack], axis=-1)
+            for element in stack], axis=0)
 
     @tf.function
     def weighted_log_prob(self, data, conditional=None, stack=None):
@@ -301,13 +301,13 @@ class NDE():
         """
         return tf.stack([
             self.model[element].conditional_prob(data, conditional=conditional)
-            for element in stack], axis=-1)
+            for element in stack], axis=0)
 
     @tf.function
     def weighted_prob(self, data, conditional=None, stack=None):
         if stack is None:
             stack = self.stack
-        return tf.reduce_sum(tf.multiply(self.prob(data, conditional=conditional, stack=stack), self.weighting), axis=-1)
+        return tf.reduce_sum(self.weighting, tf.multiply(self.prob(data, conditional=conditional, stack=stack)), axis=0)
 
     @tf.function
     def sample(self, n=None, conditional=None, stack=None):
