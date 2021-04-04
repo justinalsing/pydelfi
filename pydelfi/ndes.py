@@ -581,7 +581,7 @@ class SinhArcSinhMADE(tf.keras.Model):
                                           conditional=np.random.normal(0, 1, (1, n_parameters)).astype(np.float32))
         
     # compute the parameters of the conditional SinhArcSinh distributions
-    @tf.function
+    #@tf.function
     def call(self, x, conditional=None):
 
         # pull bijector parameters out of autoregressive network
@@ -596,7 +596,7 @@ class SinhArcSinhMADE(tf.keras.Model):
         
         return mu, sigma, tau, k, m
         
-    @tf.function
+    #@tf.function
     def log_prob(self, x, conditional=None):
         
         # pull bijector parameters out of autoregressive network
@@ -621,7 +621,7 @@ class SinhArcSinhMADE(tf.keras.Model):
         # total log probability
         return lnN + lnJ
         
-    @tf.function
+    #@tf.function
     def prob(self, x, conditional=None):
                                                             
         # probability
