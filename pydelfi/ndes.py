@@ -55,7 +55,7 @@ class NDE():
             with tf.GradientTape() as tape:
                 # Compute the loss for this batch.
                 neg_log_prob = -tf.reduce_mean(self.log_prob(y_batch_train, conditional=x_batch_train, stack=stack), -1)
-                neg_total_log_prob = tf.reduce_mean(neg_log_prob)
+                neg_total_log_prob = tf.reduce_sum(neg_log_prob)
             # Retrieve the gradients of the trainable variables wrt the loss and
             # pass to optimizer.
             grads = tape.gradient(neg_total_log_prob, variables_list)
@@ -596,7 +596,7 @@ class SinhArcSinhMADE(tf.keras.Model):
         
         return mu, sigma, tau, k, m
         
-    @tf.function
+    #@tf.function
     def log_prob(self, x, conditional=None):
         
         # pull bijector parameters out of autoregressive network
@@ -621,7 +621,7 @@ class SinhArcSinhMADE(tf.keras.Model):
         # total log probability
         return lnN + lnJ
         
-    @tf.function
+    #@tf.function
     def prob(self, x, conditional=None):
                                                             
         # probability
