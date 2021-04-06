@@ -370,12 +370,16 @@ class Delfi():
 
         # Set up default x0
         if x0 is None:
-            x0 = self.posterior_samples[np.random.choice(np.arange(len(self.posterior_samples)), replace=False, size=2*self.nwalkers),:]
+            x0 = self.posterior_samples[np.random.choice(np.arange(len(self.posterior_samples)), p=self.posterior_weights.astype(np.float32)/sum(self.posterior_weights), replace=False, size=2*self.nwalkers),:]
 
         # run chain
         chain = affine.sample(log_target, self.npar, self.nwalkers, burn_in_chain + main_chain, x0[0:self.nwalkers,:], x0[self.nwalkers:,:])
 
-        return chain.numpy()[burn_in_chain:,:,:].reshape(-1, chain.shape[-1]).astype(np.float32)
+        # cut out birn-in and flatten
+        chain = chain.numpy()[burn_in_chain:,:,:].reshape(-1, chain.shape[-1]).astype(np.float32)
+        
+        # return weighted samples
+        return np.unique(chain, axis=0, return_counts=True)
 
     def sequential_training(self, simulator, compressor, n_initial, n_batch, n_populations, proposal = None, \
                             simulator_args = None, compressor_args = None, safety = 5, plot = True, batch_size = 100, \
@@ -431,8 +435,9 @@ class Delfi():
                 print('Sampling approximate posterior...')
                 #x0 = self.posterior_samples[np.random.choice(np.arange(len(self.posterior_samples)), p=self.posterior_weights.astype(np.float32)/sum(self.posterior_weights), replace=False, size=2*self.nwalkers),:]
                 #self.posterior_samples, self.posterior_weights, self.log_posterior_values = self.emcee_sample(x0=x0, main_chain=self.posterior_chain_length)
-                x0 = self.posterior_samples[-2*self.nwalkers:,:]
-                self.posterior_samples = self.affine_sample(log_target=self.weighted_log_posterior, main_chain=self.posterior_chain_length, x0=x0)
+                #x0 = self.posterior_samples[-2*self.nwalkers:,:]
+                x0 = self.posterior_samples[np.random.choice(np.arange(len(self.posterior_samples)), p=self.posterior_weights.astype(np.float32)/sum(self.posterior_weights), replace=False, size=2*self.nwalkers),:]
+                self.posterior_samples, self.posterior_weights = self.affine_sample(log_target=self.weighted_log_posterior, main_chain=self.posterior_chain_length, x0=x0)
                 
                 # Save posterior samples to file
                 f = open(self.results_dir + "/" + 'posterior_samples_0.dat', 'w')
@@ -443,7 +448,7 @@ class Delfi():
 
                 # If plot == True, plot the current posterior estimate
                 if plot == True:
-                    self.triangle_plot([self.posterior_samples], weights=[None], savefig=True, \
+                    self.triangle_plot([self.posterior_samples], weights=[self.posterior_samples], savefig=True, \
                                     filename=self.results_dir + "/" + 'seq_train_post_0.pdf')
 
             # Save attributes if save == True
@@ -470,8 +475,10 @@ class Delfi():
                 #    self.emcee_sample(log_target = self.log_proposal,
                 #                      x0=x0,
                 #                      main_chain=self.proposal_chain_length)
-                x0 = self.proposal_samples[-2*self.nwalkers:,:]
-                self.proposal_samples = self.affine_sample(log_target=self.log_proposal, main_chain=self.proposal_chain_length, x0=x0)
+                #x0 = self.proposal_samples[-2*self.nwalkers:,:]
+                x0 = self.proposal_samples[np.random.choice(np.arange(len(self.proposal_samples)), p=self.proposal_weights.astype(np.float32)/sum(self.proposal_weights), replace=False, size=2*self.nwalkers),:]
+
+                self.proposal_samples, self.proposal_weights = self.affine_sample(log_target=self.log_proposal, main_chain=self.proposal_chain_length, x0=x0)
 
                 theta_batch = self.proposal_samples[-safety * n_batch:,:]
                 print('Done.')
@@ -505,9 +512,9 @@ class Delfi():
                     #x0 = self.posterior_samples[np.random.choice(np.arange(len(self.posterior_samples)), p=self.posterior_weights.astype(np.float32)/sum(self.posterior_weights), replace=False, size=2*self.nwalkers),:]
                     #self.posterior_samples, self.posterior_weights, self.log_posterior_values = \
                     #    self.emcee_sample(x0=x0, main_chain=self.posterior_chain_length)
-                    x0 = self.posterior_samples[-2*self.nwalkers:,:]
-                    self.posterior_samples = self.affine_sample(log_target=self.weighted_log_posterior, main_chain=self.posterior_chain_length, x0=x0)
-
+                    #x0 = self.posterior_samples[-2*self.nwalkers:,:]
+                    x0 = self.posterior_samples[np.random.choice(np.arange(len(self.posterior_samples)), p=self.posterior_weights.astype(np.float32)/sum(self.posterior_weights), replace=False, size=2*self.nwalkers),:]
+                    self.posterior_samples, self.posterior_weights = self.affine_sample(log_target=self.weighted_log_posterior, main_chain=self.posterior_chain_length, x0=x0)
 
                     # Save posterior samples to file
                     f = open(self.results_dir + "/" + 'posterior_samples_{:d}.dat'.format(i+1), 'w')
@@ -519,7 +526,7 @@ class Delfi():
                     # If plot == True
                     if plot == True:
                         # Plot the posterior
-                        self.triangle_plot([self.posterior_samples], weights=[None], \
+                        self.triangle_plot([self.posterior_samples], weights=[self.posterior_samples], \
                                         savefig=True, \
                                         filename=self.results_dir + "/" + 'seq_train_post_{:d}.pdf'.format(i + 1))
 
@@ -594,13 +601,14 @@ class Delfi():
                 #self.posterior_samples, self.posterior_weights, self.log_posterior_values = \
                 #    self.emcee_sample(x0=x0, main_chain=self.posterior_chain_length)
                 #x0 = self.posterior_samples[-2*self.nwalkers:,:]
-                x0 = self.posterior_samples[np.random.choice(np.arange(len(self.posterior_samples)), replace=False, size=2*self.nwalkers),:]
-                self.posterior_samples = self.affine_sample(log_target=self.weighted_log_posterior, main_chain=self.posterior_chain_length, x0=x0)
+                x0 = self.posterior_samples[np.random.choice(np.arange(len(self.posterior_samples)), p=self.posterior_weights.astype(np.float32)/sum(self.posterior_weights), replace=False, size=2*self.nwalkers),:]
+                #x0 = self.posterior_samples[np.random.choice(np.arange(len(self.posterior_samples)), replace=False, size=2*self.nwalkers),:]
+                self.posterior_samples, self.posterior_weights = self.affine_sample(log_target=self.weighted_log_posterior, main_chain=self.posterior_chain_length, x0=x0)
 
                 print('Done.')
 
                 # Plot the posterior
-                self.triangle_plot([self.posterior_samples], weights=[None], \
+                self.triangle_plot([self.posterior_samples], weights=[self.posterior_weights], \
                                     savefig=True, \
                                     filename=self.results_dir + "/" + 'fisher_train_post.pdf')
 
@@ -612,6 +620,7 @@ class Delfi():
         # Set samples to the posterior samples by default
         if samples is None:
             samples = [self.posterior_samples]
+            weights = [self.posterior_weights]
         mc_samples = [MCSamples(samples=s, weights=weights[i], names=self.names, labels=self.labels, ranges=self.ranges) for i, s in enumerate(samples)]
 
         # Triangle plot
