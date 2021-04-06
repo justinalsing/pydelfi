@@ -448,7 +448,7 @@ class Delfi():
 
                 # If plot == True, plot the current posterior estimate
                 if plot == True:
-                    self.triangle_plot([self.posterior_samples], weights=[self.posterior_samples], savefig=True, \
+                    self.triangle_plot([self.posterior_samples], weights=[self.posterior_weights], savefig=True, \
                                     filename=self.results_dir + "/" + 'seq_train_post_0.pdf')
 
             # Save attributes if save == True
@@ -526,7 +526,7 @@ class Delfi():
                     # If plot == True
                     if plot == True:
                         # Plot the posterior
-                        self.triangle_plot([self.posterior_samples], weights=[self.posterior_samples], \
+                        self.triangle_plot([self.posterior_samples], weights=[self.posterior_weights], \
                                         savefig=True, \
                                         filename=self.results_dir + "/" + 'seq_train_post_{:d}.pdf'.format(i + 1))
 
