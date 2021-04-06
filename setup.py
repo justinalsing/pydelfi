@@ -15,5 +15,5 @@ setup(name='pydelfi',
           "emcee>=3.0.2",
           "tqdm>=4.41.1",
           "tensorflow-probability==0.11.0",
-          "tensorflow==2.3.0"
+          "tensorflow==2.4.1"
       ])
