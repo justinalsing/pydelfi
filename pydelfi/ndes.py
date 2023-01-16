@@ -427,8 +427,7 @@ def ConditionalMaskedAutoregressiveFlow(
     bijector = tfb.Chain(MADEs)
     distribution = tfd.TransformedDistribution(
         distribution=tfd.Normal(loc=0., scale=1.),
-        bijector=bijector,
-        event_shape=[n_data])
+        bijector=bijector)
     put_conditional = lambda conditional : dict(
         zip(["MADE_{}".format(i) for i in range(n_mades)], 
             [{"conditional_input": tf.convert_to_tensor(conditional, dtype=tf.float32)} for i in range(n_mades)]))
